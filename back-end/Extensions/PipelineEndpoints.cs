@@ -18,13 +18,15 @@ public static class PipelineEndpoints
             int pageSize,
             ClaimsPrincipal user,
             IPipelineService pipelineService,
+            ISubscriptionService subscriptionService,
             CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
 
+            var historyDays = await subscriptionService.GetFailureHistoryDaysAsync(orgId.Value);
             var result = await pipelineService.GetAllFailuresAsync(
-                search, severity, page <= 0 ? 1 : page, pageSize <= 0 ? 20 : pageSize, orgId, ct);
+                search, severity, page <= 0 ? 1 : page, pageSize <= 0 ? 20 : pageSize, orgId, ct, historyDays);
             return Results.Ok(result);
         });
 
@@ -39,10 +41,16 @@ public static class PipelineEndpoints
         });
 
         // GET /api/pipelines/analytics
-        group.MapGet("/analytics", async (ClaimsPrincipal user, IPipelineService pipelineService, CancellationToken ct) =>
+        group.MapGet("/analytics", async (ClaimsPrincipal user, IPipelineService pipelineService, ISubscriptionService subscriptionService, CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
+
+            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Analytics); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
 
             var analytics = await pipelineService.GetAnalyticsAsync(orgId, ct);
             return Results.Ok(analytics);
@@ -59,14 +67,24 @@ public static class PipelineEndpoints
         });
 
         // POST /api/pipelines/analyze
-        group.MapPost("/analyze", async (AnalyzeRequest request, ClaimsPrincipal user, IPipelineService pipelineService, CancellationToken ct) =>
+        group.MapPost("/analyze", async (AnalyzeRequest request, ClaimsPrincipal user, IPipelineService pipelineService, ISubscriptionService subscriptionService, CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
 
+            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AiAnalysis); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
+
             if (string.IsNullOrWhiteSpace(request.Owner) || string.IsNullOrWhiteSpace(request.Repo))
                 return Results.BadRequest("Owner and Repo are required.");
+
             var failure = await pipelineService.AnalyzeSingleRunAsync(request.Owner, request.Repo, request.RunId, orgId, ct);
+            if (failure is not null)
+                try { await subscriptionService.IncrementAiAnalysisUsageAsync(orgId.Value); } catch { }
+
             return failure is null ? Results.NotFound() : Results.Ok(failure);
         });
 

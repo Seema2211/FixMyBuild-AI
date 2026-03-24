@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using FixMyBuildApi.Data;
 using FixMyBuildApi.Models;
+using FixMyBuildApi.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace FixMyBuildApi.Extensions;
@@ -12,12 +13,19 @@ public static class AuditEndpoints
         var group = app.MapGroup("/api/audit").RequireAuthorization();
 
         group.MapGet("/", async (
-            ClaimsPrincipal user, AppDbContext db,
+            ClaimsPrincipal user, AppDbContext db, ISubscriptionService subscriptionService,
             int page = 1, int pageSize = 50, string? action = null,
             CancellationToken ct = default) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
+
+            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AuditLog); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
+
             pageSize = Math.Clamp(pageSize, 1, 100);
             page = Math.Max(1, page);
 

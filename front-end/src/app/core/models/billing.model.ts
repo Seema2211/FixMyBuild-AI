@@ -3,12 +3,18 @@ export type PlanStatus = 'Active' | 'Trialing' | 'PastDue' | 'Canceled';
 
 export interface UsageSummary {
   failuresUsed: number;
-  failuresLimit: number;   // -1 = unlimited
+  failuresLimit: number;        // -1 = unlimited
   reposUsed: number;
-  reposLimit: number;      // -1 = unlimited
+  reposLimit: number;           // -1 = unlimited
   membersUsed: number;
-  membersLimit: number;    // -1 = unlimited
+  membersLimit: number;         // -1 = unlimited
+  aiAnalysesUsed: number;
+  aiAnalysesLimit: number;      // -1 = unlimited
   autoPrEnabled: boolean;
+  analyticsEnabled: boolean;
+  auditLogEnabled: boolean;
+  notificationsEnabled: boolean;
+  failureHistoryDays: number;   // -1 = unlimited
 }
 
 export interface BillingPlan {
@@ -28,6 +34,11 @@ export interface PublicPlan {
   maxRepos: number;
   maxFailuresPerMonth: number;
   maxMembers: number;
+  maxAiAnalysesPerMonth: number;
   autoPrEnabled: boolean;
+  analyticsEnabled: boolean;
+  auditLogEnabled: boolean;
+  notificationsEnabled: boolean;
+  failureHistoryDays: number;
   features: string[];
 }

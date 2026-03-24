@@ -14,9 +14,39 @@ public class SubscriptionService : ISubscriptionService
 
     private static readonly Dictionary<PlanType, PlanLimits> Limits = new()
     {
-        [PlanType.Free]     = new PlanLimits(MaxRepos: 3,  MaxFailuresPerMonth: 100,   MaxMembers: 1,  AutoPrEnabled: false),
-        [PlanType.Pro]      = new PlanLimits(MaxRepos: 20, MaxFailuresPerMonth: 5000,  MaxMembers: 10, AutoPrEnabled: true),
-        [PlanType.Business] = new PlanLimits(MaxRepos: int.MaxValue, MaxFailuresPerMonth: int.MaxValue, MaxMembers: int.MaxValue, AutoPrEnabled: true),
+        [PlanType.Free] = new PlanLimits(
+            MaxRepos: 3,
+            MaxFailuresPerMonth: 100,
+            MaxMembers: 1,
+            MaxAiAnalysesPerMonth: 25,
+            AutoPrEnabled: false,
+            AnalyticsEnabled: false,
+            AuditLogEnabled: false,
+            NotificationsEnabled: false,
+            FailureHistoryDays: 7
+        ),
+        [PlanType.Pro] = new PlanLimits(
+            MaxRepos: 20,
+            MaxFailuresPerMonth: 5000,
+            MaxMembers: 10,
+            MaxAiAnalysesPerMonth: -1,
+            AutoPrEnabled: true,
+            AnalyticsEnabled: true,
+            AuditLogEnabled: true,
+            NotificationsEnabled: true,
+            FailureHistoryDays: 90
+        ),
+        [PlanType.Business] = new PlanLimits(
+            MaxRepos: int.MaxValue,
+            MaxFailuresPerMonth: int.MaxValue,
+            MaxMembers: int.MaxValue,
+            MaxAiAnalysesPerMonth: -1,
+            AutoPrEnabled: true,
+            AnalyticsEnabled: true,
+            AuditLogEnabled: true,
+            NotificationsEnabled: true,
+            FailureHistoryDays: -1
+        ),
     };
 
     public SubscriptionService(AppDbContext db, IConfiguration config)
@@ -65,7 +95,6 @@ public class SubscriptionService : ISubscriptionService
             Metadata = new Dictionary<string, string> { ["orgId"] = orgId.ToString() }
         };
 
-        // Attach to existing Stripe customer if we have one
         if (!string.IsNullOrEmpty(sub.StripeCustomerId))
             options.Customer = sub.StripeCustomerId;
 
@@ -106,19 +135,15 @@ public class SubscriptionService : ISubscriptionService
             case EventTypes.CheckoutSessionCompleted:
                 await HandleCheckoutCompleted(stripeEvent);
                 break;
-
             case EventTypes.CustomerSubscriptionUpdated:
                 await HandleSubscriptionUpdated(stripeEvent);
                 break;
-
             case EventTypes.CustomerSubscriptionDeleted:
                 await HandleSubscriptionDeleted(stripeEvent);
                 break;
-
             case EventTypes.InvoicePaymentSucceeded:
                 await HandleInvoicePaymentSucceeded(stripeEvent);
                 break;
-
             case EventTypes.InvoicePaymentFailed:
                 await HandleInvoicePaymentFailed(stripeEvent);
                 break;
@@ -145,8 +170,7 @@ public class SubscriptionService : ISubscriptionService
             case LimitType.FailuresPerMonth:
                 var usage = await _db.SubscriptionUsages
                     .FirstOrDefaultAsync(u => u.OrganizationId == orgId && u.Month == currentMonth);
-                var failures = usage?.FailuresIngested ?? 0;
-                if (failures >= limits.MaxFailuresPerMonth)
+                if ((usage?.FailuresIngested ?? 0) >= limits.MaxFailuresPerMonth)
                     throw new PlanLimitException("failures_per_month", limits.MaxFailuresPerMonth, sub.Plan);
                 break;
 
@@ -161,42 +185,117 @@ public class SubscriptionService : ISubscriptionService
                 if (!limits.AutoPrEnabled)
                     throw new PlanLimitException("auto_pr", 0, sub.Plan);
                 break;
+
+            case LimitType.AiAnalysis:
+                if (limits.MaxAiAnalysesPerMonth == -1) break; // unlimited
+                var aiUsage = await _db.SubscriptionUsages
+                    .FirstOrDefaultAsync(u => u.OrganizationId == orgId && u.Month == currentMonth);
+                if ((aiUsage?.AiAnalysesUsed ?? 0) >= limits.MaxAiAnalysesPerMonth)
+                    throw new PlanLimitException("ai_analyses", limits.MaxAiAnalysesPerMonth, sub.Plan);
+                break;
+
+            case LimitType.Analytics:
+                if (!limits.AnalyticsEnabled)
+                    throw new PlanLimitException("analytics", 0, sub.Plan);
+                break;
+
+            case LimitType.AuditLog:
+                if (!limits.AuditLogEnabled)
+                    throw new PlanLimitException("audit_log", 0, sub.Plan);
+                break;
+
+            case LimitType.Notifications:
+                if (!limits.NotificationsEnabled)
+                    throw new PlanLimitException("notifications", 0, sub.Plan);
+                break;
         }
     }
 
+    // ── Usage Increment ──────────────────────────────────────────────────────
+
     public async Task IncrementFailureUsageAsync(Guid orgId)
     {
-        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
-        var usage = await _db.SubscriptionUsages
-            .FirstOrDefaultAsync(u => u.OrganizationId == orgId && u.Month == currentMonth);
-
-        if (usage == null)
-        {
-            usage = new SubscriptionUsage { OrganizationId = orgId, Month = currentMonth };
-            _db.SubscriptionUsages.Add(usage);
-        }
-
+        var usage = await GetOrCreateUsageAsync(orgId);
         usage.FailuresIngested++;
         usage.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+    }
+
+    public async Task IncrementAiAnalysisUsageAsync(Guid orgId)
+    {
+        var usage = await GetOrCreateUsageAsync(orgId);
+        usage.AiAnalysesUsed++;
+        usage.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<int> GetFailureHistoryDaysAsync(Guid orgId)
+    {
+        var sub = await GetOrCreateFreeSubscriptionAsync(orgId);
+        return Limits[sub.Plan].FailureHistoryDays;
     }
 
     // ── Public Plans ─────────────────────────────────────────────────────────
 
     public List<PublicPlan> GetPublicPlans() => new()
     {
-        new PublicPlan("free", "Free", 0, "", 3, 100, 1, false, new List<string>
-        {
-            "3 repositories", "100 failures/month", "1 team member", "Basic AI analysis", "Push-based ingest"
-        }),
-        new PublicPlan("pro", "Pro", 29, _config["Stripe:Prices:Pro"]!, 20, 5000, 10, true, new List<string>
-        {
-            "20 repositories", "5,000 failures/month", "10 team members", "AI auto-PR creation", "Priority analysis", "Audit logs"
-        }),
-        new PublicPlan("business", "Business", 99, _config["Stripe:Prices:Business"]!, int.MaxValue, int.MaxValue, int.MaxValue, true, new List<string>
-        {
-            "Unlimited repositories", "Unlimited failures", "Unlimited team members", "AI auto-PR creation", "Priority AI", "Audit logs", "Priority support"
-        }),
+        new PublicPlan(
+            Id: "free", Name: "Free", Price: 0, PriceId: "",
+            MaxRepos: 3, MaxFailuresPerMonth: 100, MaxMembers: 1,
+            MaxAiAnalysesPerMonth: 25,
+            AutoPrEnabled: false, AnalyticsEnabled: false, AuditLogEnabled: false,
+            NotificationsEnabled: false, FailureHistoryDays: 7,
+            Features: new List<string>
+            {
+                "3 repositories",
+                "100 pipeline failures/month",
+                "25 AI analyses/month",
+                "1 team member (solo)",
+                "7-day failure history",
+                "Push-based ingest",
+                "Community support"
+            }
+        ),
+        new PublicPlan(
+            Id: "pro", Name: "Pro", Price: 29, PriceId: _config["Stripe:Prices:Pro"]!,
+            MaxRepos: 20, MaxFailuresPerMonth: 5000, MaxMembers: 10,
+            MaxAiAnalysesPerMonth: -1,
+            AutoPrEnabled: true, AnalyticsEnabled: true, AuditLogEnabled: true,
+            NotificationsEnabled: true, FailureHistoryDays: 90,
+            Features: new List<string>
+            {
+                "20 repositories",
+                "5,000 pipeline failures/month",
+                "Unlimited AI analyses",
+                "10 team members",
+                "AI auto-PR creation",
+                "Trend analytics & insights",
+                "Audit log",
+                "Slack & email notifications",
+                "90-day failure history",
+                "Priority email support"
+            }
+        ),
+        new PublicPlan(
+            Id: "business", Name: "Business", Price: 99, PriceId: _config["Stripe:Prices:Business"]!,
+            MaxRepos: int.MaxValue, MaxFailuresPerMonth: int.MaxValue, MaxMembers: int.MaxValue,
+            MaxAiAnalysesPerMonth: -1,
+            AutoPrEnabled: true, AnalyticsEnabled: true, AuditLogEnabled: true,
+            NotificationsEnabled: true, FailureHistoryDays: -1,
+            Features: new List<string>
+            {
+                "Unlimited repositories",
+                "Unlimited pipeline failures",
+                "Unlimited AI analyses (priority model)",
+                "Unlimited team members",
+                "AI auto-PR creation",
+                "Trend analytics & insights",
+                "Audit log",
+                "Slack & email notifications",
+                "Unlimited failure history",
+                "Dedicated support & SLA"
+            }
+        ),
     };
 
     // ── Private Helpers ──────────────────────────────────────────────────────
@@ -210,6 +309,20 @@ public class SubscriptionService : ISubscriptionService
         _db.Subscriptions.Add(sub);
         await _db.SaveChangesAsync();
         return sub;
+    }
+
+    private async Task<SubscriptionUsage> GetOrCreateUsageAsync(Guid orgId)
+    {
+        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+        var usage = await _db.SubscriptionUsages
+            .FirstOrDefaultAsync(u => u.OrganizationId == orgId && u.Month == currentMonth);
+
+        if (usage == null)
+        {
+            usage = new SubscriptionUsage { OrganizationId = orgId, Month = currentMonth };
+            _db.SubscriptionUsages.Add(usage);
+        }
+        return usage;
     }
 
     private async Task<UsageSummary> GetUsageAsync(Guid orgId, PlanLimits limits)
@@ -232,7 +345,13 @@ public class SubscriptionService : ISubscriptionService
             ReposLimit: limits.MaxRepos == int.MaxValue ? -1 : limits.MaxRepos,
             MembersUsed: memberCount,
             MembersLimit: limits.MaxMembers == int.MaxValue ? -1 : limits.MaxMembers,
-            AutoPrEnabled: limits.AutoPrEnabled
+            AiAnalysesUsed: usage?.AiAnalysesUsed ?? 0,
+            AiAnalysesLimit: limits.MaxAiAnalysesPerMonth,
+            AutoPrEnabled: limits.AutoPrEnabled,
+            AnalyticsEnabled: limits.AnalyticsEnabled,
+            AuditLogEnabled: limits.AuditLogEnabled,
+            NotificationsEnabled: limits.NotificationsEnabled,
+            FailureHistoryDays: limits.FailureHistoryDays
         );
     }
 
@@ -244,15 +363,14 @@ public class SubscriptionService : ISubscriptionService
         var stripeSubId = session.SubscriptionId;
         var subService = new SubscriptionService2();
         var stripeSub = await subService.GetAsync(stripeSubId);
-
-        var plan = ResolvePlan(stripeSub.Items.Data[0].Price.Id);
+        var item = stripeSub.Items.Data[0];
+        var plan = ResolvePlan(item.Price.Id);
 
         var sub = await GetOrCreateFreeSubscriptionAsync(orgId);
         sub.Plan = plan;
         sub.Status = SubscriptionStatus.Active;
         sub.StripeCustomerId = session.CustomerId;
         sub.StripeSubscriptionId = stripeSubId;
-        var item = stripeSub.Items.Data[0];
         sub.StripePriceId = item.Price.Id;
         sub.CurrentPeriodStart = item.CurrentPeriodStart;
         sub.CurrentPeriodEnd = item.CurrentPeriodEnd;
@@ -301,13 +419,14 @@ public class SubscriptionService : ISubscriptionService
         var sub = await _db.Subscriptions.FirstOrDefaultAsync(s => s.StripeCustomerId == invoice.CustomerId);
         if (sub == null) return;
 
-        // Reset monthly usage on successful renewal
+        // Reset monthly usage counters on renewal
         var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
         var usage = await _db.SubscriptionUsages
             .FirstOrDefaultAsync(u => u.OrganizationId == sub.OrganizationId && u.Month == currentMonth);
         if (usage != null)
         {
             usage.FailuresIngested = 0;
+            usage.AiAnalysesUsed = 0;
             usage.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
         }

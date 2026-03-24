@@ -293,10 +293,16 @@ public static class ConfigEndpoints
             });
         });
 
-        group.MapPut("/notifications", async (NotificationSetting request, ClaimsPrincipal user, INotificationService notifService, CancellationToken ct) =>
+        group.MapPut("/notifications", async (NotificationSetting request, ClaimsPrincipal user, INotificationService notifService, ISubscriptionService subscriptionService, CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
+
+            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Notifications); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
 
             var updated = await notifService.UpdateSettingsAsync(request, orgId.Value, ct);
             return Results.Ok(updated);

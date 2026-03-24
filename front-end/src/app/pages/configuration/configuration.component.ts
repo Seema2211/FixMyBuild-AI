@@ -866,20 +866,63 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
                 }
               </div>
 
-              <!-- Auto-PR -->
+              <!-- AI Analyses -->
               <div class="usage-card">
                 <div class="usage-card-header">
-                  <span class="usage-label">AI Auto-PR</span>
+                  <span class="usage-label">AI analyses this month</span>
                   <span class="usage-value">
-                    @if (billingPlan.usage.autoPrEnabled) {
-                      <span class="feature-on">Enabled</span>
-                    } @else {
-                      <span class="feature-off">Not available</span>
-                    }
+                    {{ billingPlan.usage.aiAnalysesUsed }}
+                    / {{ billingPlan.usage.aiAnalysesLimit === -1 ? '∞' : billingPlan.usage.aiAnalysesLimit }}
                   </span>
                 </div>
+                @if (billingPlan.usage.aiAnalysesLimit !== -1) {
+                  <div class="usage-bar-wrap">
+                    <div class="usage-bar" [style.width.%]="usagePct(billingPlan.usage.aiAnalysesUsed, billingPlan.usage.aiAnalysesLimit)"
+                         [class.usage-bar-warn]="usagePct(billingPlan.usage.aiAnalysesUsed, billingPlan.usage.aiAnalysesLimit) >= 80"
+                         [class.usage-bar-danger]="usagePct(billingPlan.usage.aiAnalysesUsed, billingPlan.usage.aiAnalysesLimit) >= 100"></div>
+                  </div>
+                }
+              </div>
+
+              <!-- Feature flags -->
+              <div class="usage-card">
+                <div class="usage-card-header">
+                  <span class="usage-label">Failure history</span>
+                  <span class="usage-value">
+                    {{ billingPlan.usage.failureHistoryDays === -1 ? 'Unlimited' : billingPlan.usage.failureHistoryDays + ' days' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="usage-card">
+                <div class="feature-flag-grid">
+                  <div class="feature-flag-row">
+                    <span class="usage-label">AI Auto-PR</span>
+                    <span [class.feature-on]="billingPlan.usage.autoPrEnabled" [class.feature-off]="!billingPlan.usage.autoPrEnabled">
+                      {{ billingPlan.usage.autoPrEnabled ? 'Enabled' : 'Pro+' }}
+                    </span>
+                  </div>
+                  <div class="feature-flag-row">
+                    <span class="usage-label">Analytics</span>
+                    <span [class.feature-on]="billingPlan.usage.analyticsEnabled" [class.feature-off]="!billingPlan.usage.analyticsEnabled">
+                      {{ billingPlan.usage.analyticsEnabled ? 'Enabled' : 'Pro+' }}
+                    </span>
+                  </div>
+                  <div class="feature-flag-row">
+                    <span class="usage-label">Audit log</span>
+                    <span [class.feature-on]="billingPlan.usage.auditLogEnabled" [class.feature-off]="!billingPlan.usage.auditLogEnabled">
+                      {{ billingPlan.usage.auditLogEnabled ? 'Enabled' : 'Pro+' }}
+                    </span>
+                  </div>
+                  <div class="feature-flag-row">
+                    <span class="usage-label">Notifications</span>
+                    <span [class.feature-on]="billingPlan.usage.notificationsEnabled" [class.feature-off]="!billingPlan.usage.notificationsEnabled">
+                      {{ billingPlan.usage.notificationsEnabled ? 'Enabled' : 'Pro+' }}
+                    </span>
+                  </div>
+                </div>
                 @if (!billingPlan.usage.autoPrEnabled) {
-                  <a routerLink="/pricing" class="upgrade-hint">Upgrade to Pro to enable →</a>
+                  <a routerLink="/pricing" class="upgrade-hint" style="margin-top:0.75rem;display:block">Upgrade to Pro to unlock all features →</a>
                 }
               </div>
 
@@ -1542,10 +1585,12 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
     .usage-bar { height: 100%; background: #4f46e5; border-radius: 99px; transition: width 0.4s ease; min-width: 2px; }
     .usage-bar-warn   { background: #f59e0b; }
     .usage-bar-danger { background: #ef4444; }
-    .feature-on  { color: #34d399; font-weight: 600; }
-    .feature-off { color: #6b7280; }
+    .feature-on  { color: #34d399; font-weight: 600; font-size: 0.8125rem; }
+    .feature-off { color: #6b7280; font-size: 0.8125rem; }
     .upgrade-hint { font-size: 0.75rem; color: #818cf8; text-decoration: none; }
     .upgrade-hint:hover { color: #a5b4fc; }
+    .feature-flag-grid { display: flex; flex-direction: column; gap: 0.6rem; }
+    .feature-flag-row { display: flex; justify-content: space-between; align-items: center; }
   `]
 })
 export class ConfigurationComponent implements OnInit {

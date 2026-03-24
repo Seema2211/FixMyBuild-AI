@@ -2,15 +2,30 @@ using FixMyBuildApi.Models;
 
 namespace FixMyBuildApi.Services;
 
-public enum LimitType { Repos, FailuresPerMonth, Members, AutoPr }
+public enum LimitType { Repos, FailuresPerMonth, Members, AutoPr, AiAnalysis, Analytics, AuditLog, Notifications }
 
-public record PlanLimits(int MaxRepos, int MaxFailuresPerMonth, int MaxMembers, bool AutoPrEnabled);
+public record PlanLimits(
+    int MaxRepos,
+    int MaxFailuresPerMonth,
+    int MaxMembers,
+    int MaxAiAnalysesPerMonth,   // -1 = unlimited
+    bool AutoPrEnabled,
+    bool AnalyticsEnabled,
+    bool AuditLogEnabled,
+    bool NotificationsEnabled,
+    int FailureHistoryDays        // -1 = unlimited
+);
 
 public record UsageSummary(
     int FailuresUsed, int FailuresLimit,
     int ReposUsed, int ReposLimit,
     int MembersUsed, int MembersLimit,
-    bool AutoPrEnabled
+    int AiAnalysesUsed, int AiAnalysesLimit,
+    bool AutoPrEnabled,
+    bool AnalyticsEnabled,
+    bool AuditLogEnabled,
+    bool NotificationsEnabled,
+    int FailureHistoryDays
 );
 
 public record BillingPlan(
@@ -30,7 +45,12 @@ public record PublicPlan(
     int MaxRepos,
     int MaxFailuresPerMonth,
     int MaxMembers,
+    int MaxAiAnalysesPerMonth,
     bool AutoPrEnabled,
+    bool AnalyticsEnabled,
+    bool AuditLogEnabled,
+    bool NotificationsEnabled,
+    int FailureHistoryDays,
     List<string> Features
 );
 
@@ -42,5 +62,7 @@ public interface ISubscriptionService
     Task HandleWebhookAsync(string payload, string stripeSignature);
     Task EnforceLimitAsync(Guid orgId, LimitType limitType);
     Task IncrementFailureUsageAsync(Guid orgId);
+    Task IncrementAiAnalysisUsageAsync(Guid orgId);
+    Task<int> GetFailureHistoryDaysAsync(Guid orgId);
     List<PublicPlan> GetPublicPlans();
 }

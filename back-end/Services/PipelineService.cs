@@ -286,12 +286,19 @@ public class PipelineService : IPipelineService
         }
     }
 
-    public async Task<PipelinePage> GetAllFailuresAsync(string? search = null, string? severity = null, int page = 1, int pageSize = 20, Guid? orgId = null, CancellationToken cancellationToken = default)
+    public async Task<PipelinePage> GetAllFailuresAsync(string? search = null, string? severity = null, int page = 1, int pageSize = 20, Guid? orgId = null, CancellationToken cancellationToken = default, int historyDays = -1)
     {
         var query = _db.PipelineFailures.AsQueryable();
 
         if (orgId.HasValue)
             query = query.Where(f => f.OrganizationId == orgId.Value);
+
+        // Enforce failure history window based on plan
+        if (historyDays > 0)
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-historyDays);
+            query = query.Where(f => f.CreatedAt >= cutoff);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {

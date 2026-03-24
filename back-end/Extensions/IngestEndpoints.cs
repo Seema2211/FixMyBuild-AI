@@ -69,12 +69,15 @@ public static class IngestEndpoints
                 await db.PipelineFailures.AnyAsync(f => f.Id == id, ct))
                 return Results.Ok(new { id, status = "already_processed" });
 
-            // ── 5. AI analysis (best-effort) ────────────────────────
+            // ── 5. AI analysis (best-effort, plan-gated) ────────────
             AIAnalysis? analysis = null;
             try
             {
+                await subscriptionService.EnforceLimitAsync(apiKey.OrganizationId, LimitType.AiAnalysis);
                 analysis = await aiAnalyzer.AnalyzeLogsAsync(payload.ErrorLog, ct);
+                await subscriptionService.IncrementAiAnalysisUsageAsync(apiKey.OrganizationId);
             }
+            catch (PlanLimitException) { /* AI limit reached — store raw log without analysis */ }
             catch { /* AI unavailable — store raw log without analysis */ }
 
             // ── 6. Persist failure ──────────────────────────────────

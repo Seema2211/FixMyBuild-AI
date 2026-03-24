@@ -10,6 +10,7 @@ public class SubscriptionUsage
     public string Month { get; set; } = string.Empty;
 
     public int FailuresIngested { get; set; } = 0;
+    public int AiAnalysesUsed { get; set; } = 0;
     public int ReposConnected { get; set; } = 0;
     public int MembersCount { get; set; } = 0;
 
