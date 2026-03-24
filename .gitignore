@@ -1,0 +1,50 @@
+# ===========================
+# .NET / C# (back-end)
+# ===========================
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.db
+*.db-shm
+*.db-wal
+appsettings.Development.json
+TestResults/
+publish/
+
+# ===========================
+# Angular / Node.js (front-end)
+# ===========================
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+*.tgz
+
+# ===========================
+# Environment & Secrets
+# ===========================
+.env
+.env.*
+*.local
+
+# ===========================
+# OS
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# IDE / Editors
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
