@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using FixMyBuildApi.Data;
 using FixMyBuildApi.Extensions;
 using FixMyBuildApi.Services;
@@ -8,6 +9,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── JSON: serialize enums as strings ──────────────────────────
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // ── Configuration ─────────────────────────────────────────────
 builder.Configuration.AddEnvironmentVariables();
