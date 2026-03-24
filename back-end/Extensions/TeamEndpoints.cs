@@ -117,7 +117,7 @@ public static class TeamEndpoints
 
         group.MapPost("/invitations", async (
             InviteRequest req, ClaimsPrincipal user,
-            AppDbContext db, ITokenService tokenService, IAuditService auditService, CancellationToken ct) =>
+            AppDbContext db, ITokenService tokenService, IAuditService auditService, ISubscriptionService subscriptionService, CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
@@ -125,6 +125,12 @@ public static class TeamEndpoints
 
             if (string.IsNullOrWhiteSpace(req.Email))
                 return Results.BadRequest("Email is required.");
+
+            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Members); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
 
             var role = req.Role?.ToLower() switch
             {

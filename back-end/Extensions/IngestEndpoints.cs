@@ -16,6 +16,7 @@ public static class IngestEndpoints
             IAIAnalyzerService aiAnalyzer,
             INotificationService notifService,
             ITokenService tokenService,
+            ISubscriptionService subscriptionService,
             CancellationToken ct) =>
         {
             // ── 1. Validate API key ─────────────────────────────────
@@ -51,6 +52,13 @@ public static class IngestEndpoints
 
             if (payload is null || string.IsNullOrWhiteSpace(payload.ErrorLog))
                 return Results.BadRequest("errorLog is required.");
+
+            // ── 3b. Enforce failure/month limit ─────────────────────
+            try { await subscriptionService.EnforceLimitAsync(apiKey.OrganizationId, LimitType.FailuresPerMonth); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
 
             // ── 4. Dedup: skip if already processed ─────────────────
             var id = payload.RunId.HasValue
@@ -99,6 +107,9 @@ public static class IngestEndpoints
 
             db.PipelineFailures.Add(failure);
             await db.SaveChangesAsync(ct);
+
+            // ── 6b. Increment usage counter ──────────────────────────
+            try { await subscriptionService.IncrementFailureUsageAsync(apiKey.OrganizationId); } catch { }
 
             // ── 7. Notification (best-effort) ───────────────────────
             try

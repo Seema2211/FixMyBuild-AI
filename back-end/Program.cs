@@ -68,6 +68,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // ── Background Worker ─────────────────────────────────────────
 builder.Services.AddHostedService<PipelineMonitorWorker>();
@@ -94,6 +95,14 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── Middleware ────────────────────────────────────────────────
+// Stripe webhook needs raw request body — disable buffering for that route
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/billing/webhook"))
+        context.Request.EnableBuffering();
+    await next();
+});
+
 app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
@@ -107,5 +116,6 @@ app.MapIngestEndpoints();
 app.MapOnboardingEndpoints();
 app.MapTeamEndpoints();
 app.MapAuditEndpoints();
+app.MapBillingEndpoints();
 
 app.Run();

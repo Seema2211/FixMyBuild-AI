@@ -45,6 +45,14 @@ public class AuthService : IAuthService
         };
         _db.Organizations.Add(org);
 
+        // Auto-create Free subscription for new organization
+        _db.Subscriptions.Add(new Subscription
+        {
+            OrganizationId = org.Id,
+            Plan = PlanType.Free,
+            Status = SubscriptionStatus.Active,
+        });
+
         var membership = new OrganizationMember
         {
             UserId = user.Id,

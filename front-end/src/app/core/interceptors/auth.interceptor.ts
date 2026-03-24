@@ -13,6 +13,12 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
 
   return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {
+      if (error.status === 402) {
+        // Plan limit reached — redirect to pricing page
+        router.navigate(['/pricing'], { queryParams: { reason: error.error?.limit ?? 'limit' } });
+        return throwError(() => error);
+      }
+
       if (error.status === 401 && !req.url.includes('/api/auth/')) {
         // Try to refresh token once
         return authService.refresh().pipe(

@@ -20,6 +20,10 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 
+    // ── Billing ─────────────────────────────────────────────────
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<SubscriptionUsage> SubscriptionUsages => Set<SubscriptionUsage>();
+
     // ── Pipeline ────────────────────────────────────────────────
     public DbSet<PipelineFailure> PipelineFailures => Set<PipelineFailure>();
     public DbSet<PipelineSource> PipelineSources => Set<PipelineSource>();
@@ -148,6 +152,26 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<NotificationSetting>(e =>
         {
             e.HasKey(s => s.Id);
+        });
+
+        // ── Subscription ─────────────────────────────────────────
+        modelBuilder.Entity<Subscription>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => s.OrganizationId).IsUnique();
+            e.HasIndex(s => s.StripeCustomerId);
+            e.HasIndex(s => s.StripeSubscriptionId);
+            e.Property(s => s.Plan).HasConversion<string>();
+            e.Property(s => s.Status).HasConversion<string>();
+            e.HasOne(s => s.Organization).WithOne(o => o.Subscription).HasForeignKey<Subscription>(s => s.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── SubscriptionUsage ────────────────────────────────────
+        modelBuilder.Entity<SubscriptionUsage>(e =>
+        {
+            e.HasKey(u => u.Id);
+            e.HasIndex(u => new { u.OrganizationId, u.Month }).IsUnique();
+            e.HasOne(u => u.Organization).WithMany(o => o.SubscriptionUsages).HasForeignKey(u => u.OrganizationId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

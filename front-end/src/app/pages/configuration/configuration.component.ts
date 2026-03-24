@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +11,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { AuditService } from '../../core/services/audit.service';
 import type { AuditEntry } from '../../core/models/audit.model';
 import { AUDIT_ACTION_LABELS, AUDIT_ACTION_COLORS } from '../../core/models/audit.model';
+import { BillingService } from '../../core/services/billing.service';
+import type { BillingPlan } from '../../core/models/billing.model';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { SourceFormDialogComponent } from '../../shared/source-form-dialog/source-form-dialog.component';
 import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-dialog.component';
 
@@ -115,6 +117,20 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
           <span class="nav-tab-label">Audit Log</span>
           <span class="nav-tab-hint">Security event history</span>
         </div>
+      </button>
+      <button class="nav-tab" [class.active]="activeTab === 'billing'" (click)="switchToBilling()">
+        <div class="nav-tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+        </div>
+        <div class="nav-tab-text">
+          <span class="nav-tab-label">Billing</span>
+          <span class="nav-tab-hint">Plan, usage & payments</span>
+        </div>
+        @if (billingPlan?.plan && billingPlan?.plan !== 'Free') {
+          <span class="nav-tab-status on"></span>
+        }
       </button>
     </nav>
 
@@ -749,6 +765,129 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
         }
       }
 
+      <!-- ════════════ BILLING TAB ════════════ -->
+      @if (activeTab === 'billing') {
+        <div class="content-header">
+          <div>
+            <h2 class="content-title">Billing & Plan</h2>
+            <p class="content-desc">Manage your subscription, usage, and payment details.</p>
+          </div>
+        </div>
+
+        @if (billingLoading) {
+          <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+        }
+
+        @if (!billingLoading && billingPlan) {
+          <!-- Current Plan Card -->
+          <div class="billing-plan-card">
+            <div class="billing-plan-header">
+              <div>
+                <div class="billing-plan-name">
+                  <span class="plan-badge plan-{{ billingPlan.plan.toLowerCase() }}">{{ billingPlan.plan }}</span>
+                  @if (billingPlan.status === 'PastDue') {
+                    <span class="status-badge status-warning">Payment Due</span>
+                  }
+                  @if (billingPlan.cancelAtPeriodEnd) {
+                    <span class="status-badge status-danger">Cancels {{ formatBillingDate(billingPlan.currentPeriodEnd) }}</span>
+                  }
+                </div>
+                @if (billingPlan.currentPeriodEnd && billingPlan.plan !== 'Free') {
+                  <p class="billing-renewal">Renews {{ formatBillingDate(billingPlan.currentPeriodEnd) }}</p>
+                }
+              </div>
+              <div class="billing-plan-actions">
+                @if (billingPlan.plan === 'Free') {
+                  <a routerLink="/pricing" class="btn btn-primary">Upgrade Plan</a>
+                } @else {
+                  <button class="btn btn-outline" (click)="openBillingPortal()">Manage Billing</button>
+                  <a routerLink="/pricing" class="btn btn-ghost">Change Plan</a>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- Usage Meters -->
+          <div class="billing-usage-section">
+            <h3 class="usage-title">Current Usage</h3>
+            <div class="usage-grid">
+
+              <!-- Failures -->
+              <div class="usage-card">
+                <div class="usage-card-header">
+                  <span class="usage-label">Failures this month</span>
+                  <span class="usage-value">
+                    {{ billingPlan.usage.failuresUsed }}
+                    / {{ billingPlan.usage.failuresLimit === -1 ? '∞' : billingPlan.usage.failuresLimit }}
+                  </span>
+                </div>
+                @if (billingPlan.usage.failuresLimit !== -1) {
+                  <div class="usage-bar-wrap">
+                    <div class="usage-bar" [style.width.%]="usagePct(billingPlan.usage.failuresUsed, billingPlan.usage.failuresLimit)"
+                         [class.usage-bar-warn]="usagePct(billingPlan.usage.failuresUsed, billingPlan.usage.failuresLimit) >= 80"
+                         [class.usage-bar-danger]="usagePct(billingPlan.usage.failuresUsed, billingPlan.usage.failuresLimit) >= 100"></div>
+                  </div>
+                }
+              </div>
+
+              <!-- Repos -->
+              <div class="usage-card">
+                <div class="usage-card-header">
+                  <span class="usage-label">Repositories</span>
+                  <span class="usage-value">
+                    {{ billingPlan.usage.reposUsed }}
+                    / {{ billingPlan.usage.reposLimit === -1 ? '∞' : billingPlan.usage.reposLimit }}
+                  </span>
+                </div>
+                @if (billingPlan.usage.reposLimit !== -1) {
+                  <div class="usage-bar-wrap">
+                    <div class="usage-bar" [style.width.%]="usagePct(billingPlan.usage.reposUsed, billingPlan.usage.reposLimit)"
+                         [class.usage-bar-warn]="usagePct(billingPlan.usage.reposUsed, billingPlan.usage.reposLimit) >= 80"
+                         [class.usage-bar-danger]="usagePct(billingPlan.usage.reposUsed, billingPlan.usage.reposLimit) >= 100"></div>
+                  </div>
+                }
+              </div>
+
+              <!-- Members -->
+              <div class="usage-card">
+                <div class="usage-card-header">
+                  <span class="usage-label">Team members</span>
+                  <span class="usage-value">
+                    {{ billingPlan.usage.membersUsed }}
+                    / {{ billingPlan.usage.membersLimit === -1 ? '∞' : billingPlan.usage.membersLimit }}
+                  </span>
+                </div>
+                @if (billingPlan.usage.membersLimit !== -1) {
+                  <div class="usage-bar-wrap">
+                    <div class="usage-bar" [style.width.%]="usagePct(billingPlan.usage.membersUsed, billingPlan.usage.membersLimit)"
+                         [class.usage-bar-warn]="usagePct(billingPlan.usage.membersUsed, billingPlan.usage.membersLimit) >= 80"
+                         [class.usage-bar-danger]="usagePct(billingPlan.usage.membersUsed, billingPlan.usage.membersLimit) >= 100"></div>
+                  </div>
+                }
+              </div>
+
+              <!-- Auto-PR -->
+              <div class="usage-card">
+                <div class="usage-card-header">
+                  <span class="usage-label">AI Auto-PR</span>
+                  <span class="usage-value">
+                    @if (billingPlan.usage.autoPrEnabled) {
+                      <span class="feature-on">Enabled</span>
+                    } @else {
+                      <span class="feature-off">Not available</span>
+                    }
+                  </span>
+                </div>
+                @if (!billingPlan.usage.autoPrEnabled) {
+                  <a routerLink="/pricing" class="upgrade-hint">Upgrade to Pro to enable →</a>
+                }
+              </div>
+
+            </div>
+          </div>
+        }
+      }
+
     </div>
   </div>
 </div>
@@ -1361,10 +1500,56 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
       margin-top: 0.75rem;
     }
     .audit-page-info { font-size: 0.8125rem; color: #6b7280; }
+
+    /* ═══ Billing Tab ═══ */
+    .billing-plan-card {
+      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+    }
+    .billing-plan-header {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    }
+    .billing-plan-name { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+    .plan-badge {
+      font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .plan-free     { background: #374151; color: #d1d5db; }
+    .plan-pro      { background: #4f46e5; color: #fff; }
+    .plan-business { background: #7c3aed; color: #fff; }
+    .status-badge {
+      font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 99px;
+    }
+    .status-warning { background: #fef3c7; color: #92400e; }
+    .status-danger  { background: #fee2e2; color: #991b1b; }
+    .billing-renewal { font-size: 0.8125rem; color: #6b7280; margin: 0; }
+    .billing-plan-actions { display: flex; gap: 0.5rem; }
+    .btn-ghost {
+      padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.8125rem; font-weight: 500;
+      background: transparent; border: none; color: #9ca3af; cursor: pointer; transition: color 0.15s;
+      text-decoration: none;
+    }
+    .btn-ghost:hover { color: #e5e7eb; }
+
+    .billing-usage-section { margin-top: 0.5rem; }
+    .usage-title { font-size: 0.9375rem; font-weight: 600; color: #e5e7eb; margin: 0 0 1rem 0; }
+    .usage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+    .usage-card {
+      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1rem 1.25rem;
+    }
+    .usage-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .usage-label { font-size: 0.8125rem; color: #9ca3af; }
+    .usage-value { font-size: 0.875rem; font-weight: 600; color: #e5e7eb; }
+    .usage-bar-wrap { background: #2d3748; border-radius: 99px; height: 6px; overflow: hidden; }
+    .usage-bar { height: 100%; background: #4f46e5; border-radius: 99px; transition: width 0.4s ease; min-width: 2px; }
+    .usage-bar-warn   { background: #f59e0b; }
+    .usage-bar-danger { background: #ef4444; }
+    .feature-on  { color: #34d399; font-weight: 600; }
+    .feature-off { color: #6b7280; }
+    .upgrade-hint { font-size: 0.75rem; color: #818cf8; text-decoration: none; }
+    .upgrade-hint:hover { color: #a5b4fc; }
   `]
 })
 export class ConfigurationComponent implements OnInit {
-  activeTab: 'sources' | 'notifications' | 'api-keys' | 'team' | 'audit' = 'sources';
+  activeTab: 'sources' | 'notifications' | 'api-keys' | 'team' | 'audit' | 'billing' = 'sources';
   sources: PipelineSource[] = [];
   loading = true;
   testingSourceId: number | null = null;
@@ -1391,6 +1576,10 @@ export class ConfigurationComponent implements OnInit {
   auditPageSize = 50;
   auditTotal = 0;
 
+  // Billing
+  billingPlan: BillingPlan | null = null;
+  billingLoading = false;
+
   // Team
   members: TeamMember[] = [];
   pendingInvites: PendingInvitation[] = [];
@@ -1405,6 +1594,9 @@ export class ConfigurationComponent implements OnInit {
     private readonly teamService: TeamService,
     private readonly authService: AuthService,
     private readonly auditService: AuditService,
+    private readonly billingService: BillingService,
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
   ) {}
@@ -1412,6 +1604,10 @@ export class ConfigurationComponent implements OnInit {
   ngOnInit(): void {
     this.loadSources();
     this.loadNotificationSettings();
+    // Support ?tab=billing query param (e.g. from Stripe redirect)
+    this.route.queryParams.subscribe(params => {
+      if (params['tab'] === 'billing') this.switchToBilling();
+    });
   }
 
   loadSources(): void {
@@ -1857,6 +2053,38 @@ export class ConfigurationComponent implements OnInit {
       month: 'short', day: 'numeric', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
+  }
+
+  // ── Billing ────────────────────────────────────────────────────
+
+  switchToBilling(): void {
+    this.activeTab = 'billing';
+    if (!this.billingPlan && !this.billingLoading) this.loadBillingPlan();
+  }
+
+  loadBillingPlan(): void {
+    this.billingLoading = true;
+    this.billingService.getCurrentPlan().subscribe({
+      next: (plan) => { this.billingPlan = plan; this.billingLoading = false; },
+      error: () => {
+        this.snackBar.open('Failed to load billing info', 'Dismiss', { duration: 4000 });
+        this.billingLoading = false;
+      }
+    });
+  }
+
+  openBillingPortal(): void {
+    this.billingService.openBillingPortal();
+  }
+
+  usagePct(used: number, limit: number): number {
+    if (limit <= 0) return 0;
+    return Math.min(100, Math.round((used / limit) * 100));
+  }
+
+  formatBillingDate(dateStr: string | null): string {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   getProviderIcon(provider: string): string {

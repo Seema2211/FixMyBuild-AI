@@ -186,13 +186,19 @@ public static class ConfigEndpoints
             }));
         });
 
-        group.MapPost("/sources/{sourceId:int}/repos", async (int sourceId, AddRepoRequest request, ClaimsPrincipal user, IConfigurationService configService, CancellationToken ct) =>
+        group.MapPost("/sources/{sourceId:int}/repos", async (int sourceId, AddRepoRequest request, ClaimsPrincipal user, IConfigurationService configService, ISubscriptionService subscriptionService, CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
 
             if (string.IsNullOrWhiteSpace(request.FullName))
                 return Results.BadRequest("Repository full name (owner/repo) is required.");
+
+            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Repos); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
 
             var repo = new ConnectedRepository
             {

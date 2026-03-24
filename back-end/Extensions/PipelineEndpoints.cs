@@ -71,10 +71,16 @@ public static class PipelineEndpoints
         });
 
         // POST /api/pipelines/create-pr
-        group.MapPost("/create-pr", async (PullRequestRequest request, ClaimsPrincipal user, IPipelineService pipelineService, IGitHubService githubService, CancellationToken ct) =>
+        group.MapPost("/create-pr", async (PullRequestRequest request, ClaimsPrincipal user, IPipelineService pipelineService, IGitHubService githubService, ISubscriptionService subscriptionService, CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
+
+            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AutoPr); }
+            catch (PlanLimitException ex)
+            {
+                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+            }
 
             var failure = await pipelineService.GetFailureByIdAsync(request.PipelineFailureId, orgId, ct);
             if (failure is null)

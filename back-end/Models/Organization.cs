@@ -12,4 +12,6 @@ public class Organization
     public ICollection<PipelineSource> PipelineSources { get; set; } = new List<PipelineSource>();
     public ICollection<NotificationSetting> NotificationSettings { get; set; } = new List<NotificationSetting>();
     public ICollection<ApiKey> ApiKeys { get; set; } = new List<ApiKey>();
+    public Subscription? Subscription { get; set; }
+    public ICollection<SubscriptionUsage> SubscriptionUsages { get; set; } = new List<SubscriptionUsage>();
 }
