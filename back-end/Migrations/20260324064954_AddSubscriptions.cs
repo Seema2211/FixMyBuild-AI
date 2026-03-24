@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -63,6 +63,11 @@ namespace FixMyBuildApi.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Invitations_InvitedByUserId",
+                table: "Invitations",
+                column: "InvitedByUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Subscriptions_OrganizationId",
                 table: "Subscriptions",
                 column: "OrganizationId",
@@ -88,8 +93,15 @@ namespace FixMyBuildApi.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(name: "Subscriptions");
-            migrationBuilder.DropTable(name: "SubscriptionUsages");
+            migrationBuilder.DropTable(
+                name: "Subscriptions");
+
+            migrationBuilder.DropTable(
+                name: "SubscriptionUsages");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Invitations_InvitedByUserId",
+                table: "Invitations");
         }
     }
 }
