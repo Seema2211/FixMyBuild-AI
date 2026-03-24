@@ -1,0 +1,138 @@
+using FixMyBuildApi.Data;
+using FixMyBuildApi.Models;
+using FixMyBuildApi.Services;
+using Microsoft.EntityFrameworkCore;
+
+namespace FixMyBuildApi.Extensions;
+
+public static class IngestEndpoints
+{
+    public static void MapIngestEndpoints(this IEndpointRouteBuilder app)
+    {
+        // POST /api/ingest — authenticated by API key (Authorization: Bearer fmb_live_...)
+        app.MapPost("/api/ingest", async (
+            HttpRequest request,
+            AppDbContext db,
+            IAIAnalyzerService aiAnalyzer,
+            INotificationService notifService,
+            ITokenService tokenService,
+            CancellationToken ct) =>
+        {
+            // ── 1. Validate API key ─────────────────────────────────
+            var authHeader = request.Headers.Authorization.ToString();
+            if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var rawKey = authHeader["Bearer ".Length..].Trim();
+            if (string.IsNullOrEmpty(rawKey))
+                return Results.Unauthorized();
+
+            var keyHash = tokenService.HashToken(rawKey);
+            var apiKey = await db.ApiKeys
+                .FirstOrDefaultAsync(k => k.KeyHash == keyHash && k.IsActive, ct);
+
+            if (apiKey is null)
+                return Results.Unauthorized();
+
+            // ── 2. Update last-used timestamp ───────────────────────
+            apiKey.LastUsedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            // ── 3. Parse payload ────────────────────────────────────
+            IngestRequest? payload;
+            try
+            {
+                payload = await request.ReadFromJsonAsync<IngestRequest>(ct);
+            }
+            catch
+            {
+                return Results.BadRequest("Invalid JSON payload.");
+            }
+
+            if (payload is null || string.IsNullOrWhiteSpace(payload.ErrorLog))
+                return Results.BadRequest("errorLog is required.");
+
+            // ── 4. Dedup: skip if already processed ─────────────────
+            var id = payload.RunId.HasValue
+                ? $"ingest:{payload.RepoOwner}:{payload.RepoName}:{payload.RunId}"
+                : $"ingest:{apiKey.OrganizationId:N}:{Guid.NewGuid():N}";
+
+            if (payload.RunId.HasValue &&
+                await db.PipelineFailures.AnyAsync(f => f.Id == id, ct))
+                return Results.Ok(new { id, status = "already_processed" });
+
+            // ── 5. AI analysis (best-effort) ────────────────────────
+            AIAnalysis? analysis = null;
+            try
+            {
+                analysis = await aiAnalyzer.AnalyzeLogsAsync(payload.ErrorLog, ct);
+            }
+            catch { /* AI unavailable — store raw log without analysis */ }
+
+            // ── 6. Persist failure ──────────────────────────────────
+            var failure = new PipelineFailure
+            {
+                Id = id,
+                OrganizationId = apiKey.OrganizationId,
+                PipelineName = payload.PipelineName?.Trim() ?? "Pipeline",
+                Status = "failure",
+                ErrorLog = payload.ErrorLog,
+                FailedStage = analysis?.FailedStage,
+                ErrorSummary = analysis?.ErrorSummary,
+                RootCause = analysis?.RootCause ?? "Unknown",
+                Category = analysis?.Category,
+                FixSuggestion = analysis?.FixSuggestion ?? "",
+                KeyErrorLines = analysis?.KeyErrorLines ?? new(),
+                Severity = analysis?.Severity,
+                Confidence = analysis?.Confidence ?? 0,
+                Explanation = "",
+                Command = payload.Provider ?? "push",
+                CreatedAt = DateTime.UtcNow,
+                RepoOwner = payload.RepoOwner,
+                RepoName = payload.RepoName,
+                RunId = payload.RunId,
+                HeadBranch = payload.Branch,
+                ActorLogin = payload.ActorLogin,
+                CommitAuthorEmail = payload.CommitAuthorEmail,
+                CommitAuthorName = payload.CommitAuthorName,
+            };
+
+            db.PipelineFailures.Add(failure);
+            await db.SaveChangesAsync(ct);
+
+            // ── 7. Notification (best-effort) ───────────────────────
+            try
+            {
+                await notifService.NotifyFailureAsync(failure, ct);
+                failure.NotificationSent = true;
+                await db.SaveChangesAsync(ct);
+            }
+            catch { }
+
+            return Results.Created($"/api/pipelines/{Uri.EscapeDataString(id)}", new
+            {
+                id,
+                status = "processed",
+                severity = failure.Severity,
+                rootCause = failure.RootCause,
+                confidence = failure.Confidence,
+            });
+        });
+    }
+
+    // ── Request DTO ───────────────────────────────────────────────────
+
+    private class IngestRequest
+    {
+        public string? PipelineName { get; set; }
+        public string ErrorLog { get; set; } = "";
+        public string? RepoOwner { get; set; }
+        public string? RepoName { get; set; }
+        public string? Branch { get; set; }
+        public long? RunId { get; set; }
+        public string? Provider { get; set; }           // "github" | "gitlab" | "azure_devops"
+        public string? ActorLogin { get; set; }
+        public string? CommitAuthorEmail { get; set; }
+        public string? CommitAuthorName { get; set; }
+    }
+}
