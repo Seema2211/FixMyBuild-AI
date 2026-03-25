@@ -69,7 +69,8 @@ public class AuthService : IAuthService
         return await IssueTokensAsync(user, org.Id, OrgRole.Admin, ct);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest req, CancellationToken ct = default)
+    public async Task<AuthResponse> LoginAsync(LoginRequest req, CancellationToken ct = default,
+        string? ipAddress = null, string? userAgent = null)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLowerInvariant(), ct);
         if (user is null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
@@ -80,7 +81,7 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(m => m.UserId == user.Id, ct)
             ?? throw new InvalidOperationException("User has no organization.");
 
-        return await IssueTokensAsync(user, membership.OrganizationId, membership.Role, ct);
+        return await IssueTokensAsync(user, membership.OrganizationId, membership.Role, ct, ipAddress, userAgent);
     }
 
     public async Task<AuthResponse> RefreshAsync(string rawRefreshToken, CancellationToken ct = default)
@@ -130,7 +131,7 @@ public class AuthService : IAuthService
         if (membership is null) return null;
 
         return new UserDto(user.Id, user.Email, user.FirstName, user.LastName,
-            membership.OrganizationId, membership.Organization.Name, membership.Role, user.EmailVerified);
+            membership.OrganizationId, membership.Organization.Name, membership.Role, user.EmailVerified, user.IsSuperAdmin);
     }
 
     public async Task<AuthResponse> AcceptInviteAsync(AcceptInviteRequest req, CancellationToken ct = default)
@@ -298,9 +299,10 @@ public class AuthService : IAuthService
         }
     }
 
-    private async Task<AuthResponse> IssueTokensAsync(User user, Guid orgId, string role, CancellationToken ct)
+    private async Task<AuthResponse> IssueTokensAsync(User user, Guid orgId, string role, CancellationToken ct,
+        string? ipAddress = null, string? userAgent = null)
     {
-        var accessToken = _tokens.GenerateAccessToken(user, orgId, role);
+        var accessToken = _tokens.GenerateAccessToken(user, orgId, role, user.IsSuperAdmin);
         var (rawRefresh, refreshHash) = _tokens.GenerateRefreshToken();
         var expiryDays = int.Parse(_config["Jwt:RefreshTokenExpiryDays"] ?? "30");
 
@@ -309,6 +311,9 @@ public class AuthService : IAuthService
             UserId = user.Id,
             TokenHash = refreshHash,
             ExpiresAt = DateTime.UtcNow.AddDays(expiryDays),
+            IpAddress = ipAddress,
+            UserAgent = userAgent?.Length > 512 ? userAgent[..512] : userAgent,
+            LastUsedAt = DateTime.UtcNow,
         };
         _db.RefreshTokens.Add(refreshToken);
         await _db.SaveChangesAsync(ct);
@@ -321,7 +326,7 @@ public class AuthService : IAuthService
             AccessToken: accessToken,
             RefreshToken: rawRefresh,
             User: new UserDto(user.Id, user.Email, user.FirstName, user.LastName,
-                orgId, membership?.Organization.Name ?? "", role, user.EmailVerified)
+                orgId, membership?.Organization.Name ?? "", role, user.EmailVerified, user.IsSuperAdmin)
         );
     }
 

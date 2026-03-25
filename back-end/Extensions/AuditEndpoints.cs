@@ -20,10 +20,13 @@ public static class AuditEndpoints
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
 
-            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AuditLog); }
-            catch (PlanLimitException ex)
+            if (!user.IsSuperAdmin())
             {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+                try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AuditLog); }
+                catch (PlanLimitException ex)
+                {
+                    return ApiErrors.PlanLimit(ex);
+                }
             }
 
             pageSize = Math.Clamp(pageSize, 1, 100);

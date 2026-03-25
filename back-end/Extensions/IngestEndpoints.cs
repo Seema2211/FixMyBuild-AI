@@ -1,3 +1,4 @@
+using FixMyBuildApi.Constants;
 using FixMyBuildApi.Data;
 using FixMyBuildApi.Models;
 using FixMyBuildApi.Services;
@@ -17,6 +18,10 @@ public static class IngestEndpoints
             INotificationService notifService,
             ITokenService tokenService,
             ISubscriptionService subscriptionService,
+            ISseService sseService,
+            IWebhookDeliveryService webhookDelivery,
+            IServiceScopeFactory scopeFactory,
+            IAutoFixService autoFixService,
             CancellationToken ct) =>
         {
             // ── 1. Validate API key ─────────────────────────────────
@@ -57,7 +62,7 @@ public static class IngestEndpoints
             try { await subscriptionService.EnforceLimitAsync(apiKey.OrganizationId, LimitType.FailuresPerMonth); }
             catch (PlanLimitException ex)
             {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+                return ApiErrors.PlanLimit(ex);
             }
 
             // ── 4. Dedup: skip if already processed ─────────────────
@@ -67,7 +72,7 @@ public static class IngestEndpoints
 
             if (payload.RunId.HasValue &&
                 await db.PipelineFailures.AnyAsync(f => f.Id == id, ct))
-                return Results.Ok(new { id, status = "already_processed" });
+                return Results.Ok(new { id, status = FailureStatus.AlreadyProcessed });
 
             // ── 5. AI analysis (best-effort, plan-gated) ────────────
             AIAnalysis? analysis = null;
@@ -86,7 +91,7 @@ public static class IngestEndpoints
                 Id = id,
                 OrganizationId = apiKey.OrganizationId,
                 PipelineName = payload.PipelineName?.Trim() ?? "Pipeline",
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 ErrorLog = payload.ErrorLog,
                 FailedStage = analysis?.FailedStage,
                 ErrorSummary = analysis?.ErrorSummary,
@@ -123,13 +128,84 @@ public static class IngestEndpoints
             }
             catch { }
 
+            // ── 8. SSE real-time push (singleton, fire-and-forget) ──
+            try
+            {
+                await sseService.PublishAsync(apiKey.OrganizationId, "failure.created", new
+                {
+                    id = failure.Id,
+                    pipelineName = failure.PipelineName,
+                    repoOwner = failure.RepoOwner,
+                    repoName = failure.RepoName,
+                    severity = failure.Severity,
+                    rootCause = failure.RootCause,
+                    category = failure.Category,
+                    createdAt = failure.CreatedAt,
+                });
+            }
+            catch { }
+
+            // ── 9. In-app notification + bell SSE update ─────────────
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = scopeFactory.CreateScope();
+                    var scopedDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var scopedSse = scope.ServiceProvider.GetRequiredService<ISseService>();
+                    var repo = string.IsNullOrEmpty(failure.RepoName)
+                        ? failure.PipelineName
+                        : $"{failure.RepoOwner}/{failure.RepoName}";
+                    await NotificationEndpoints.CreateAndPublishAsync(
+                        scopedDb, scopedSse,
+                        failure.OrganizationId ?? apiKey.OrganizationId, userId: null,
+                        title: "Pipeline failure detected",
+                        message: $"{repo} failed — {failure.RootCause}",
+                        type: failure.Severity?.ToLower() == "critical" ? "error" : "warning",
+                        link: $"/dashboard?highlight={Uri.EscapeDataString(failure.Id)}");
+                }
+                catch { }
+            });
+
+            // ── 10. Outbound webhooks (already fire-and-forget inside service) ─
+            try
+            {
+                await webhookDelivery.DeliverAsync(apiKey.OrganizationId, "failure.created", new
+                {
+                    id = failure.Id,
+                    pipelineName = failure.PipelineName,
+                    repoOwner = failure.RepoOwner,
+                    repoName = failure.RepoName,
+                    branch = failure.HeadBranch,
+                    severity = failure.Severity,
+                    rootCause = failure.RootCause,
+                    category = failure.Category,
+                    fixSuggestion = failure.FixSuggestion,
+                    createdAt = failure.CreatedAt,
+                });
+            }
+            catch { }
+
+            // ── 11. Auto-fix: AI comment on open PRs + create fix PR ───────
+            // Plan limit + provider lookup are handled inside AutoFixService.
+            CreatedPullRequest? autoPr = null;
+            try
+            {
+                var autoFix = await autoFixService.RunAsync(failure, analysis, apiKey.OrganizationId, ct: ct);
+                autoPr = autoFix.PullRequest;
+                if (autoPr != null || autoFix.CommentPosted)
+                    await db.SaveChangesAsync(ct);
+            }
+            catch { /* VCS error — non-blocking */ }
+
             return Results.Created($"/api/pipelines/{Uri.EscapeDataString(id)}", new
             {
                 id,
-                status = "processed",
+                status = FailureStatus.Processed,
                 severity = failure.Severity,
                 rootCause = failure.RootCause,
                 confidence = failure.Confidence,
+                pullRequest = autoPr == null ? null : new { autoPr.PrNumber, autoPr.HtmlUrl, autoPr.BranchName },
             });
         });
     }

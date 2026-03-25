@@ -126,10 +126,13 @@ public static class TeamEndpoints
             if (string.IsNullOrWhiteSpace(req.Email))
                 return Results.BadRequest("Email is required.");
 
-            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Members); }
-            catch (PlanLimitException ex)
+            if (!user.IsSuperAdmin())
             {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+                try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Members); }
+                catch (PlanLimitException ex)
+                {
+                    return ApiErrors.PlanLimit(ex);
+                }
             }
 
             var role = req.Role?.ToLower() switch

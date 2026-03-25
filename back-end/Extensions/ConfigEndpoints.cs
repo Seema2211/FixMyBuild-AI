@@ -194,10 +194,13 @@ public static class ConfigEndpoints
             if (string.IsNullOrWhiteSpace(request.FullName))
                 return Results.BadRequest("Repository full name (owner/repo) is required.");
 
-            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Repos); }
-            catch (PlanLimitException ex)
+            if (!user.IsSuperAdmin())
             {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+                try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Repos); }
+                catch (PlanLimitException ex)
+                {
+                    return ApiErrors.PlanLimit(ex);
+                }
             }
 
             var repo = new ConnectedRepository
@@ -298,10 +301,13 @@ public static class ConfigEndpoints
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
 
-            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Notifications); }
-            catch (PlanLimitException ex)
+            if (!user.IsSuperAdmin())
             {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+                try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Notifications); }
+                catch (PlanLimitException ex)
+                {
+                    return ApiErrors.PlanLimit(ex);
+                }
             }
 
             var updated = await notifService.UpdateSettingsAsync(request, orgId.Value, ct);

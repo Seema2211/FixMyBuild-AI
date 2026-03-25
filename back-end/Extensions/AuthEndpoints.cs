@@ -27,11 +27,13 @@ public static class AuthEndpoints
         });
 
         // ── Login ────────────────────────────────────────────────
-        group.MapPost("/login", async (LoginRequest req, IAuthService authService, IAuditService auditService, CancellationToken ct) =>
+        group.MapPost("/login", async (HttpContext context, LoginRequest req, IAuthService authService, IAuditService auditService, CancellationToken ct) =>
         {
             try
             {
-                var response = await authService.LoginAsync(req, ct);
+                var ip = context.Connection.RemoteIpAddress?.ToString();
+                var ua = context.Request.Headers.UserAgent.ToString();
+                var response = await authService.LoginAsync(req, ct, ip, ua);
                 await auditService.LogAsync(AuditActions.UserLogin, response.User.OrganizationId, response.User.Id, response.User.Email, ct: ct);
                 return Results.Ok(response);
             }

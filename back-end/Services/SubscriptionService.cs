@@ -1,3 +1,4 @@
+using FixMyBuildApi.Constants;
 using FixMyBuildApi.Data;
 using FixMyBuildApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -156,7 +157,7 @@ public class SubscriptionService : ISubscriptionService
     {
         var sub = await GetOrCreateFreeSubscriptionAsync(orgId);
         var limits = Limits[sub.Plan];
-        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+        var currentMonth = DateTime.UtcNow.ToString(DateFormats.Month);
 
         switch (limitType)
         {
@@ -237,66 +238,90 @@ public class SubscriptionService : ISubscriptionService
 
     // ── Public Plans ─────────────────────────────────────────────────────────
 
-    public List<PublicPlan> GetPublicPlans() => new()
+    // Single source of truth: all numeric limits come from the Limits dictionary above.
+    // Only feature descriptions (marketing copy) live here.
+    public List<PublicPlan> GetPublicPlans()
     {
-        new PublicPlan(
-            Id: "free", Name: "Free", Price: 0, PriceId: "",
-            MaxRepos: 3, MaxFailuresPerMonth: 100, MaxMembers: 1,
-            MaxAiAnalysesPerMonth: 25,
-            AutoPrEnabled: false, AnalyticsEnabled: false, AuditLogEnabled: false,
-            NotificationsEnabled: false, FailureHistoryDays: 7,
-            Features: new List<string>
-            {
-                "3 repositories",
-                "100 pipeline failures/month",
-                "25 AI analyses/month",
-                "1 team member (solo)",
-                "7-day failure history",
-                "Push-based ingest",
-                "Community support"
-            }
-        ),
-        new PublicPlan(
-            Id: "pro", Name: "Pro", Price: 29, PriceId: _config["Stripe:Prices:Pro"]!,
-            MaxRepos: 20, MaxFailuresPerMonth: 5000, MaxMembers: 10,
-            MaxAiAnalysesPerMonth: -1,
-            AutoPrEnabled: true, AnalyticsEnabled: true, AuditLogEnabled: true,
-            NotificationsEnabled: true, FailureHistoryDays: 90,
-            Features: new List<string>
-            {
-                "20 repositories",
-                "5,000 pipeline failures/month",
-                "Unlimited AI analyses",
-                "10 team members",
-                "AI auto-PR creation",
-                "Trend analytics & insights",
-                "Audit log",
-                "Slack & email notifications",
-                "90-day failure history",
-                "Priority email support"
-            }
-        ),
-        new PublicPlan(
-            Id: "business", Name: "Business", Price: 99, PriceId: _config["Stripe:Prices:Business"]!,
-            MaxRepos: int.MaxValue, MaxFailuresPerMonth: int.MaxValue, MaxMembers: int.MaxValue,
-            MaxAiAnalysesPerMonth: -1,
-            AutoPrEnabled: true, AnalyticsEnabled: true, AuditLogEnabled: true,
-            NotificationsEnabled: true, FailureHistoryDays: -1,
-            Features: new List<string>
-            {
-                "Unlimited repositories",
-                "Unlimited pipeline failures",
-                "Unlimited AI analyses (priority model)",
-                "Unlimited team members",
-                "AI auto-PR creation",
-                "Trend analytics & insights",
-                "Audit log",
-                "Slack & email notifications",
-                "Unlimited failure history",
-                "Dedicated support & SLA"
-            }
-        ),
-    };
+        var free     = Limits[PlanType.Free];
+        var pro      = Limits[PlanType.Pro];
+        var business = Limits[PlanType.Business];
+
+        return new List<PublicPlan>
+        {
+            new PublicPlan(
+                Id: "free", Name: "Free", Price: 0, PriceId: "",
+                MaxRepos: free.MaxRepos,
+                MaxFailuresPerMonth: free.MaxFailuresPerMonth,
+                MaxMembers: free.MaxMembers,
+                MaxAiAnalysesPerMonth: free.MaxAiAnalysesPerMonth,
+                AutoPrEnabled: free.AutoPrEnabled,
+                AnalyticsEnabled: free.AnalyticsEnabled,
+                AuditLogEnabled: free.AuditLogEnabled,
+                NotificationsEnabled: free.NotificationsEnabled,
+                FailureHistoryDays: free.FailureHistoryDays,
+                Features: new List<string>
+                {
+                    $"{free.MaxRepos} repositories",
+                    $"{free.MaxFailuresPerMonth} pipeline failures/month",
+                    $"{free.MaxAiAnalysesPerMonth} AI analyses/month",
+                    $"{free.MaxMembers} team member (solo)",
+                    $"{free.FailureHistoryDays}-day failure history",
+                    "Push-based ingest",
+                    "Community support"
+                }
+            ),
+            new PublicPlan(
+                Id: "pro", Name: "Pro", Price: 29, PriceId: _config["Stripe:Prices:Pro"]!,
+                MaxRepos: pro.MaxRepos,
+                MaxFailuresPerMonth: pro.MaxFailuresPerMonth,
+                MaxMembers: pro.MaxMembers,
+                MaxAiAnalysesPerMonth: pro.MaxAiAnalysesPerMonth,
+                AutoPrEnabled: pro.AutoPrEnabled,
+                AnalyticsEnabled: pro.AnalyticsEnabled,
+                AuditLogEnabled: pro.AuditLogEnabled,
+                NotificationsEnabled: pro.NotificationsEnabled,
+                FailureHistoryDays: pro.FailureHistoryDays,
+                Features: new List<string>
+                {
+                    $"{pro.MaxRepos} repositories",
+                    $"{pro.MaxFailuresPerMonth:N0} pipeline failures/month",
+                    "Unlimited AI analyses",
+                    $"{pro.MaxMembers} team members",
+                    "AI auto-PR creation",
+                    "Trend analytics & insights",
+                    "Audit log",
+                    "Slack & email notifications",
+                    $"{pro.FailureHistoryDays}-day failure history",
+                    "Priority email support"
+                }
+            ),
+            new PublicPlan(
+                Id: "business", Name: "Business", Price: 99, PriceId: _config["Stripe:Prices:Business"]!,
+                MaxRepos: business.MaxRepos,
+                MaxFailuresPerMonth: business.MaxFailuresPerMonth,
+                MaxMembers: business.MaxMembers,
+                MaxAiAnalysesPerMonth: business.MaxAiAnalysesPerMonth,
+                AutoPrEnabled: business.AutoPrEnabled,
+                AnalyticsEnabled: business.AnalyticsEnabled,
+                AuditLogEnabled: business.AuditLogEnabled,
+                NotificationsEnabled: business.NotificationsEnabled,
+                FailureHistoryDays: business.FailureHistoryDays,
+                Features: new List<string>
+                {
+                    "Unlimited repositories",
+                    "Unlimited pipeline failures",
+                    "Unlimited AI analyses (priority model)",
+                    "Unlimited team members",
+                    "AI auto-PR creation",
+                    "Trend analytics & insights",
+                    "Audit log",
+                    "Slack & email notifications",
+                    "Unlimited failure history",
+                    "Dedicated support & SLA"
+                }
+            ),
+        };
+    }
 
     // ── Private Helpers ──────────────────────────────────────────────────────
 
@@ -313,7 +338,7 @@ public class SubscriptionService : ISubscriptionService
 
     private async Task<SubscriptionUsage> GetOrCreateUsageAsync(Guid orgId)
     {
-        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+        var currentMonth = DateTime.UtcNow.ToString(DateFormats.Month);
         var usage = await _db.SubscriptionUsages
             .FirstOrDefaultAsync(u => u.OrganizationId == orgId && u.Month == currentMonth);
 
@@ -327,7 +352,7 @@ public class SubscriptionService : ISubscriptionService
 
     private async Task<UsageSummary> GetUsageAsync(Guid orgId, PlanLimits limits)
     {
-        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+        var currentMonth = DateTime.UtcNow.ToString(DateFormats.Month);
 
         var usage = await _db.SubscriptionUsages
             .FirstOrDefaultAsync(u => u.OrganizationId == orgId && u.Month == currentMonth);
@@ -420,7 +445,7 @@ public class SubscriptionService : ISubscriptionService
         if (sub == null) return;
 
         // Reset monthly usage counters on renewal
-        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+        var currentMonth = DateTime.UtcNow.ToString(DateFormats.Month);
         var usage = await _db.SubscriptionUsages
             .FirstOrDefaultAsync(u => u.OrganizationId == sub.OrganizationId && u.Month == currentMonth);
         if (usage != null)

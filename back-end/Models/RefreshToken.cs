@@ -10,6 +10,10 @@ public class RefreshToken
     public DateTime? RevokedAt { get; set; }
     public string? ReplacedByTokenHash { get; set; }        // for rotation audit trail
 
+    public string? IpAddress { get; set; }
+    public string? UserAgent { get; set; }
+    public DateTime? LastUsedAt { get; set; }
+
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
     public bool IsRevoked => RevokedAt.HasValue;
     public bool IsActive => !IsRevoked && !IsExpired;

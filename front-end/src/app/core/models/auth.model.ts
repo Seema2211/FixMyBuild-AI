@@ -26,6 +26,7 @@ export interface UserDto {
   organizationName: string;
   role: string;
   emailVerified: boolean;
+  isSuperAdmin: boolean;
 }
 
 export interface RefreshRequest {

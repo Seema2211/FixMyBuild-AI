@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -6,10 +6,12 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PipelineService } from '../../core/services/pipeline.service';
 import { AuthService } from '../../core/services/auth.service';
+import { SseService } from '../../core/services/sse.service';
 import { AnalyzeDialogComponent } from '../../shared/analyze-dialog/analyze-dialog.component';
 import { DashboardAnalyticsComponent } from '../../shared/dashboard-analytics/dashboard-analytics.component';
 import type { PipelineListItem, PipelineStats, PipelineAnalytics } from '../../core/models/pipeline.model';
 import { environment } from '../../../environments/environment';
+import { Subscription } from 'rxjs';
 
 interface OnboardingStatus { hasSource: boolean; hasRepo: boolean; hasFailure: boolean; isComplete: boolean; }
 
@@ -579,7 +581,7 @@ interface OnboardingStatus { hasSource: boolean; hasRepo: boolean; hasFailure: b
     .page-info { font-size: 0.8125rem; color: var(--text-muted); margin-left: 0.5rem; }
   `]
 })
-export class PipelineDashboardComponent implements OnInit {
+export class PipelineDashboardComponent implements OnInit, OnDestroy {
   Math = Math;
   loading = signal(true);
   seeding = signal(false);
@@ -595,6 +597,7 @@ export class PipelineDashboardComponent implements OnInit {
   currentPage = 1;
   pageSize = 20;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private sseSub: Subscription | null = null;
 
   constructor(
     private readonly pipelineService: PipelineService,
@@ -602,6 +605,7 @@ export class PipelineDashboardComponent implements OnInit {
     private readonly http: HttpClient,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
+    private readonly sseService: SseService,
   ) {}
 
   ngOnInit(): void {
@@ -609,6 +613,17 @@ export class PipelineDashboardComponent implements OnInit {
     this.loadAnalytics();
     this.loadPipelines();
     this.loadOnboardingStatus();
+    this.sseSub = this.sseService.events$.subscribe(event => {
+      if (event.type === 'failure.created' && this.currentPage === 1) {
+        // Refresh list to show the new failure at top
+        this.loadPipelines();
+        this.loadStats();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.sseSub?.unsubscribe();
   }
 
   loadOnboardingStatus(): void {

@@ -13,14 +13,14 @@ public class TokenService : ITokenService
 
     public TokenService(IConfiguration config) => _config = config;
 
-    public string GenerateAccessToken(User user, Guid organizationId, string role)
+    public string GenerateAccessToken(User user, Guid organizationId, string role, bool isSuperAdmin = false)
     {
         var secret = _config["Jwt:Secret"] ?? throw new InvalidOperationException("JWT secret not configured.");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var expiryMinutes = int.Parse(_config["Jwt:AccessTokenExpiryMinutes"] ?? "15");
 
-        var claims = new[]
+        var claimsList = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
@@ -30,6 +30,11 @@ public class TokenService : ITokenService
             new Claim("role", role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
+
+        if (isSuperAdmin)
+            claimsList.Add(new Claim("superAdmin", "true"));
+
+        var claims = claimsList.ToArray();
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],

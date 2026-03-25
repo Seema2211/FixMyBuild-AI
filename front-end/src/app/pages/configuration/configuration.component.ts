@@ -13,6 +13,10 @@ import type { AuditEntry } from '../../core/models/audit.model';
 import { AUDIT_ACTION_LABELS, AUDIT_ACTION_COLORS } from '../../core/models/audit.model';
 import { BillingService } from '../../core/services/billing.service';
 import type { BillingPlan } from '../../core/models/billing.model';
+import { ProfileService } from '../../core/services/profile.service';
+import type { OrgInfo, SessionInfo } from '../../core/services/profile.service';
+import { WebhookService } from '../../core/services/webhook.service';
+import type { Webhook, CreateWebhookDto } from '../../core/services/webhook.service';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { SourceFormDialogComponent } from '../../shared/source-form-dialog/source-form-dialog.component';
 import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-dialog.component';
@@ -131,6 +135,59 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
         @if (billingPlan?.plan && billingPlan?.plan !== 'Free') {
           <span class="nav-tab-status on"></span>
         }
+      </button>
+
+      <div class="nav-divider"></div>
+
+      <button class="nav-tab" [class.active]="activeTab === 'profile'" (click)="switchToProfile()">
+        <div class="nav-tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="nav-tab-text">
+          <span class="nav-tab-label">My Profile</span>
+          <span class="nav-tab-hint">Name, email & password</span>
+        </div>
+      </button>
+
+      <button class="nav-tab" [class.active]="activeTab === 'organization'" (click)="switchToOrganization()">
+        <div class="nav-tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <div class="nav-tab-text">
+          <span class="nav-tab-label">Organization</span>
+          <span class="nav-tab-hint">Name, slug & danger zone</span>
+        </div>
+      </button>
+
+      <button class="nav-tab" [class.active]="activeTab === 'webhooks'" (click)="switchToWebhooks()">
+        <div class="nav-tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </div>
+        <div class="nav-tab-text">
+          <span class="nav-tab-label">Webhooks</span>
+          <span class="nav-tab-hint">Outbound event delivery</span>
+        </div>
+        @if (webhooks.length > 0) {
+          <span class="nav-tab-count">{{ webhooks.length }}</span>
+        }
+      </button>
+
+      <button class="nav-tab" [class.active]="activeTab === 'security'" (click)="switchToSecurity()">
+        <div class="nav-tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div class="nav-tab-text">
+          <span class="nav-tab-label">Security</span>
+          <span class="nav-tab-hint">Active sessions & devices</span>
+        </div>
       </button>
     </nav>
 
@@ -931,6 +988,383 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
         }
       }
 
+      <!-- ════════════ PROFILE TAB ════════════ -->
+      @if (activeTab === 'profile') {
+        <div class="content-header">
+          <div>
+            <h2 class="content-title">My Profile</h2>
+            <p class="content-desc">Manage your personal account information and security settings.</p>
+          </div>
+        </div>
+
+        <!-- Avatar + Name Row -->
+        <div class="profile-avatar-row">
+          <div class="profile-avatar">{{ getInitials() }}</div>
+          <div>
+            <p class="profile-email-display">{{ authService.currentUser()?.email }}</p>
+            <p class="profile-member-since">Member since {{ formatDate(authService.currentUser()?.id ? '2024-01-01' : '') }}</p>
+          </div>
+        </div>
+
+        <!-- Display Name -->
+        <div class="section-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Display Name
+        </div>
+        <div class="settings-card">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="field-label">First Name</label>
+              <input type="text" class="field-input" [(ngModel)]="profileFirstName" placeholder="Jane">
+            </div>
+            <div class="form-group">
+              <label class="field-label">Last Name</label>
+              <input type="text" class="field-input" [(ngModel)]="profileLastName" placeholder="Smith">
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-primary" (click)="saveProfile()" [disabled]="savingProfile">
+              @if (savingProfile) { <span class="spinner-sm"></span> }
+              Save Name
+            </button>
+          </div>
+        </div>
+
+        <!-- Change Email -->
+        <div class="section-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Email Address
+        </div>
+        <div class="settings-card">
+          <div class="current-value-row">
+            <span class="current-label">Current email</span>
+            <span class="current-value">{{ authService.currentUser()?.email }}</span>
+          </div>
+          <div class="form-grid" style="margin-top:1rem">
+            <div class="form-group span-2">
+              <label class="field-label">New Email</label>
+              <input type="email" class="field-input" [(ngModel)]="profileNewEmail" placeholder="new@example.com">
+            </div>
+            <div class="form-group span-2">
+              <label class="field-label">Confirm with Password</label>
+              <input type="password" class="field-input" [(ngModel)]="profileEmailPassword" placeholder="Your current password">
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-primary" (click)="changeEmail()" [disabled]="savingEmail">
+              @if (savingEmail) { <span class="spinner-sm"></span> }
+              Update Email
+            </button>
+          </div>
+          <p class="field-hint" style="margin-top:0.75rem">A verification email will be sent to the new address.</p>
+        </div>
+
+        <!-- Change Password -->
+        <div class="section-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Password
+        </div>
+        <div class="settings-card">
+          <div class="form-grid">
+            <div class="form-group span-2">
+              <label class="field-label">Current Password</label>
+              <input type="password" class="field-input" [(ngModel)]="profilePasswordCurrent" placeholder="Enter current password">
+            </div>
+            <div class="form-group">
+              <label class="field-label">New Password</label>
+              <input type="password" class="field-input" [(ngModel)]="profilePasswordNew" placeholder="Min. 8 characters">
+            </div>
+            <div class="form-group">
+              <label class="field-label">Confirm New Password</label>
+              <input type="password" class="field-input" [(ngModel)]="profilePasswordConfirm" placeholder="Repeat new password">
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-primary" (click)="changePassword()" [disabled]="savingPassword">
+              @if (savingPassword) { <span class="spinner-sm"></span> }
+              Change Password
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- ════════════ ORGANIZATION TAB ════════════ -->
+      @if (activeTab === 'organization') {
+        <div class="content-header">
+          <div>
+            <h2 class="content-title">Organization</h2>
+            <p class="content-desc">Manage your organization settings and configuration.</p>
+          </div>
+        </div>
+
+        @if (orgLoading) {
+          <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+        }
+
+        @if (!orgLoading && orgInfo) {
+          <!-- General Info -->
+          <div class="section-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            General
+          </div>
+
+          <div class="org-meta-row">
+            <div class="org-meta-item">
+              <span class="org-meta-label">Members</span>
+              <span class="org-meta-value">{{ orgInfo.memberCount }}</span>
+            </div>
+            <div class="org-meta-item">
+              <span class="org-meta-label">Created</span>
+              <span class="org-meta-value">{{ formatDate(orgInfo.createdAt) }}</span>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="form-grid">
+              <div class="form-group span-2">
+                <label class="field-label">Organization Name</label>
+                <input type="text" class="field-input" [(ngModel)]="orgName" placeholder="Acme Corp">
+              </div>
+              <div class="form-group span-2">
+                <label class="field-label">URL Slug</label>
+                <div class="slug-input-wrap">
+                  <span class="slug-prefix">fixmybuild.ai/</span>
+                  <input type="text" class="field-input slug-input" [(ngModel)]="orgSlug" placeholder="acme-corp">
+                </div>
+                <p class="field-hint">Only lowercase letters, numbers, and hyphens.</p>
+              </div>
+            </div>
+            <div class="card-footer">
+              @if (isAdmin()) {
+                <button class="btn btn-primary" (click)="saveOrg()" [disabled]="savingOrg">
+                  @if (savingOrg) { <span class="spinner-sm"></span> }
+                  Save Changes
+                </button>
+              } @else {
+                <p class="field-hint">Only organization admins can edit these settings.</p>
+              }
+            </div>
+          </div>
+
+          <!-- Danger Zone -->
+          @if (isAdmin()) {
+            <div class="section-label danger-section-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Danger Zone
+            </div>
+            <div class="danger-zone-card">
+              <div class="danger-zone-row">
+                <div>
+                  <h4 class="danger-zone-title">Delete Organization</h4>
+                  <p class="danger-zone-desc">Permanently delete this organization, all members, repositories, and pipeline data. This cannot be undone.</p>
+                </div>
+                @if (!showDeleteOrgConfirm) {
+                  <button class="btn btn-danger" (click)="showDeleteOrgConfirm = true">Delete Organization</button>
+                }
+              </div>
+              @if (showDeleteOrgConfirm) {
+                <div class="delete-confirm-form">
+                  <p class="delete-confirm-warning">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                    This will permanently delete <strong>{{ orgInfo.name }}</strong> and all its data.
+                  </p>
+                  <input type="password" class="field-input" [(ngModel)]="orgDeletePassword" placeholder="Confirm with your password">
+                  <div class="delete-confirm-actions">
+                    <button class="btn btn-outline" (click)="showDeleteOrgConfirm = false; orgDeletePassword = ''">Cancel</button>
+                    <button class="btn btn-danger" (click)="deleteOrg()" [disabled]="deletingOrg || !orgDeletePassword">
+                      @if (deletingOrg) { <span class="spinner-sm"></span> }
+                      Confirm Delete
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        }
+      }
+
+      <!-- ════════════ WEBHOOKS TAB ════════════ -->
+      @if (activeTab === 'webhooks') {
+        <div class="content-header">
+          <div>
+            <h2 class="content-title">Outbound Webhooks</h2>
+            <p class="content-desc">Send real-time pipeline events to your own endpoints. Pro+ plan required.</p>
+          </div>
+          <button class="btn btn-primary" (click)="showWebhookForm = !showWebhookForm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Webhook
+          </button>
+        </div>
+
+        @if (showWebhookForm) {
+          <div class="settings-card" style="margin-bottom: 1.5rem;">
+            <h3 style="font-size: 0.9375rem; font-weight: 600; color: #0f172a; margin: 0 0 1rem;">New Webhook</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="field-label">Name</label>
+                <input type="text" class="field-input" [(ngModel)]="newWebhookName" placeholder="My Webhook">
+              </div>
+              <div class="form-group">
+                <label class="field-label">Endpoint URL <span class="required-star">*</span></label>
+                <input type="url" class="field-input" [(ngModel)]="newWebhookUrl" placeholder="https://example.com/webhook">
+              </div>
+              <div class="form-group span-2">
+                <label class="field-label">Secret (optional — used for HMAC signature)</label>
+                <input type="text" class="field-input" [(ngModel)]="newWebhookSecret" placeholder="my-secret-key">
+              </div>
+            </div>
+            <div class="card-footer" style="display: flex; gap: 0.75rem;">
+              <button class="btn btn-primary" (click)="createWebhook()" [disabled]="creatingWebhook || !newWebhookUrl">
+                @if (creatingWebhook) { <span class="spinner-sm"></span> }
+                Create Webhook
+              </button>
+              <button class="btn btn-outline" (click)="showWebhookForm = false">Cancel</button>
+            </div>
+          </div>
+        }
+
+        @if (webhooksLoading) {
+          <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+        }
+
+        @if (!webhooksLoading && webhooks.length === 0) {
+          <div class="empty-state">
+            <div class="empty-icon-wrap">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+            </div>
+            <h3 class="empty-title">No webhooks configured</h3>
+            <p class="empty-desc">Add a webhook to receive real-time notifications when pipeline failures are detected or analyzed.</p>
+          </div>
+        }
+
+        @for (wh of webhooks; track wh.id) {
+          <div class="settings-card" style="margin-bottom: 0.75rem;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;">
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.25rem;">
+                  <span style="font-size: 0.9375rem; font-weight: 600; color: #111827;">{{ wh.name }}</span>
+                  <span class="status-indicator" [class.active]="wh.isActive">{{ wh.isActive ? 'Active' : 'Paused' }}</span>
+                  @if (wh.hasSecret) {
+                    <span style="font-size: 0.6875rem; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
+                      HMAC
+                    </span>
+                  }
+                </div>
+                <p style="margin: 0 0 0.5rem; font-size: 0.8125rem; color: #6b7280; font-family: monospace;">{{ wh.url }}</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.375rem;">
+                  @for (ev of wh.events; track ev) {
+                    <span style="font-size: 0.6875rem; background: #ede9fe; color: #5b21b6; padding: 2px 8px; border-radius: 4px; font-weight: 600;">{{ ev }}</span>
+                  }
+                </div>
+              </div>
+              <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                <button class="btn-sm btn-outline" (click)="testWebhook(wh.id)" title="Send test event">Test</button>
+                <button class="btn-sm btn-outline" (click)="toggleWebhook(wh)" title="{{ wh.isActive ? 'Pause' : 'Activate' }}">
+                  {{ wh.isActive ? 'Pause' : 'Activate' }}
+                </button>
+                <button class="btn-sm btn-danger-sm" (click)="deleteWebhook(wh.id)" title="Delete webhook">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Recent deliveries toggle -->
+            @if (wh.recentDeliveries.length > 0) {
+              <div style="margin-top: 0.875rem; border-top: 1px solid #f1f5f9; padding-top: 0.75rem;">
+                <button class="btn-link" (click)="toggleDeliveries(wh.id)">
+                  {{ expandedWebhookDeliveries === wh.id ? 'Hide' : 'Show' }} recent deliveries ({{ wh.recentDeliveries.length }})
+                </button>
+                @if (expandedWebhookDeliveries === wh.id) {
+                  <div class="webhook-deliveries-list">
+                    @for (d of wh.recentDeliveries; track d.id) {
+                      <div class="delivery-row">
+                        <span class="delivery-status" [class.success]="d.success" [class.fail]="!d.success">
+                          {{ d.success ? '✓' : '✗' }}
+                        </span>
+                        <span class="delivery-event">{{ d.event }}</span>
+                        <span class="delivery-code">{{ d.statusCode ?? '—' }}</span>
+                        <span class="delivery-attempts">{{ d.attemptCount }} attempt{{ d.attemptCount !== 1 ? 's' : '' }}</span>
+                        <span class="delivery-time">{{ formatDate(d.createdAt) }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      }
+
+      <!-- ════════════ SECURITY TAB ════════════ -->
+      @if (activeTab === 'security') {
+        <div class="content-header">
+          <div>
+            <h2 class="content-title">Security &amp; Sessions</h2>
+            <p class="content-desc">Manage your active sessions and connected devices.</p>
+          </div>
+        </div>
+
+        @if (sessionsLoading) {
+          <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+        }
+
+        @if (!sessionsLoading) {
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+            <button class="btn btn-outline" (click)="revokeOtherSessions()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign out all other sessions
+            </button>
+          </div>
+
+          @if (sessions.length === 0) {
+            <div class="empty-state">
+              <div class="empty-icon-wrap">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+              <h3 class="empty-title">No active sessions</h3>
+              <p class="empty-desc">You have no other active sessions.</p>
+            </div>
+          }
+
+          @for (session of sessions; track session.id) {
+            <div class="settings-card" style="margin-bottom: 0.75rem;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;">
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.375rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    <span style="font-size: 0.8125rem; color: #374151;">
+                      {{ session.ipAddress ?? 'Unknown IP' }}
+                    </span>
+                  </div>
+                  <p style="margin: 0 0 0.25rem; font-size: 0.75rem; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px;">
+                    {{ session.userAgent ?? 'Unknown browser' }}
+                  </p>
+                  <div style="display: flex; gap: 1rem;">
+                    <span style="font-size: 0.75rem; color: #9ca3af;">
+                      Last used: {{ formatDate(session.lastUsedAt) }}
+                    </span>
+                    <span style="font-size: 0.75rem; color: #9ca3af;">
+                      Expires: {{ formatDate(session.expiresAt) }}
+                    </span>
+                  </div>
+                </div>
+                <button class="btn-sm btn-danger-sm" (click)="revokeSession(session.id)"
+                  [disabled]="revokingSessionId === session.id">
+                  @if (revokingSessionId === session.id) { <span class="spinner-sm"></span> }
+                  @else { Revoke }
+                </button>
+              </div>
+            </div>
+          }
+        }
+      }
+
     </div>
   </div>
 </div>
@@ -1591,10 +2025,119 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
     .upgrade-hint:hover { color: #a5b4fc; }
     .feature-flag-grid { display: flex; flex-direction: column; gap: 0.6rem; }
     .feature-flag-row { display: flex; justify-content: space-between; align-items: center; }
+
+    /* ═══ Nav Divider ═══ */
+    .nav-divider { height: 1px; background: #f1f5f9; margin: 0.25rem 0.5rem; }
+
+    /* ═══ Settings Card ═══ */
+    .settings-card {
+      background: white; border: 1.5px solid #e2e8f0; border-radius: 12px;
+      padding: 1.25rem; margin-bottom: 0.75rem;
+    }
+    .card-footer { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #f1f5f9; }
+    .current-value-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.625rem 0.875rem; background: #f8fafc; border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    .current-label { font-size: 0.8125rem; color: #6b7280; }
+    .current-value { font-size: 0.875rem; font-weight: 600; color: #111827; }
+
+    /* ═══ Profile Tab ═══ */
+    .profile-avatar-row {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1.25rem; background: white; border: 1.5px solid #e2e8f0;
+      border-radius: 12px; margin-bottom: 1.5rem;
+    }
+    .profile-avatar {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.25rem; font-weight: 800; color: white;
+      flex-shrink: 0;
+    }
+    .profile-email-display { font-size: 0.9375rem; font-weight: 600; color: #111827; margin: 0 0 0.2rem; }
+    .profile-member-since { font-size: 0.8125rem; color: #9ca3af; margin: 0; }
+
+    /* ═══ Org Tab ═══ */
+    .org-meta-row {
+      display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;
+    }
+    .org-meta-item {
+      flex: 1; min-width: 120px;
+      background: white; border: 1.5px solid #e2e8f0; border-radius: 10px;
+      padding: 0.875rem 1rem;
+    }
+    .org-meta-label { display: block; font-size: 0.75rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+    .org-meta-value { font-size: 1.25rem; font-weight: 800; color: #111827; }
+    .slug-input-wrap { display: flex; align-items: center; border: 1.5px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .slug-prefix { padding: 0.625rem 0.75rem; background: #f8fafc; font-size: 0.8125rem; color: #9ca3af; border-right: 1px solid #e2e8f0; white-space: nowrap; }
+    .slug-input { border: none !important; border-radius: 0 !important; flex: 1; }
+    .slug-input:focus { outline: none; box-shadow: none; }
+
+    /* ═══ Danger Zone ═══ */
+    .danger-section-label { color: #ef4444; border-bottom-color: #fee2e2; }
+    .danger-section-label svg { color: #ef4444; }
+    .danger-zone-card {
+      border: 1.5px solid #fecaca; border-radius: 12px;
+      padding: 1.25rem; background: #fff5f5;
+    }
+    .danger-zone-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+    .danger-zone-title { font-size: 0.9375rem; font-weight: 700; color: #991b1b; margin: 0 0 0.25rem; }
+    .danger-zone-desc { font-size: 0.8125rem; color: #b91c1c; margin: 0; max-width: 480px; line-height: 1.5; }
+    .btn-danger {
+      background: #ef4444; color: white; border: none;
+      padding: 0.5625rem 1.125rem; border-radius: 10px;
+      font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      transition: all 180ms ease; font-family: inherit;
+      &:hover { background: #dc2626; }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+    .delete-confirm-form { margin-top: 1rem; border-top: 1px solid #fecaca; padding-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .delete-confirm-warning {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.875rem; color: #991b1b; font-weight: 500;
+    }
+    .delete-confirm-actions { display: flex; gap: 0.75rem; }
+
+    /* ═══ Webhooks Tab ═══ */
+    .status-indicator {
+      display: inline-block; padding: 2px 8px; border-radius: 99px;
+      font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      background: #fee2e2; color: #b91c1c;
+      &.active { background: #dcfce7; color: #166534; }
+    }
+    .btn-link {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.8125rem; font-weight: 600; color: #6366f1;
+      padding: 0; font-family: inherit;
+      &:hover { text-decoration: underline; }
+    }
+    .btn-danger-sm {
+      padding: 0.35rem 0.75rem; border-radius: 7px;
+      font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      background: #fee2e2; color: #b91c1c; border: 1.5px solid #fecaca;
+      transition: all 150ms ease; font-family: inherit;
+      &:hover { background: #fecaca; }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+    .webhook-deliveries-list { margin-top: 0.625rem; display: flex; flex-direction: column; gap: 0.375rem; }
+    .delivery-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.375rem 0.5rem; background: #f8fafc; border-radius: 6px;
+      font-size: 0.75rem; color: #374151;
+    }
+    .delivery-status { font-weight: 800; &.success { color: #16a34a; } &.fail { color: #dc2626; } }
+    .delivery-event { flex: 1; font-family: monospace; font-size: 0.75rem; }
+    .delivery-code { background: #e5e7eb; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+    .delivery-attempts { color: #9ca3af; }
+    .delivery-time { color: #9ca3af; margin-left: auto; }
   `]
 })
 export class ConfigurationComponent implements OnInit {
-  activeTab: 'sources' | 'notifications' | 'api-keys' | 'team' | 'audit' | 'billing' = 'sources';
+  activeTab: 'sources' | 'notifications' | 'api-keys' | 'team' | 'audit' | 'billing' | 'profile' | 'organization' | 'webhooks' | 'security' = 'sources';
   sources: PipelineSource[] = [];
   loading = true;
   testingSourceId: number | null = null;
@@ -1634,12 +2177,53 @@ export class ConfigurationComponent implements OnInit {
   sendingInvite = false;
   newInviteLink = '';
 
+  // Profile
+  profileFirstName = '';
+  profileLastName = '';
+  savingProfile = false;
+  profilePasswordCurrent = '';
+  profilePasswordNew = '';
+  profilePasswordConfirm = '';
+  savingPassword = false;
+  profileNewEmail = '';
+  profileEmailPassword = '';
+  savingEmail = false;
+
+  // Organization
+  orgInfo: OrgInfo | null = null;
+  orgLoading = false;
+  orgName = '';
+  orgSlug = '';
+  savingOrg = false;
+  orgDeletePassword = '';
+  deletingOrg = false;
+  showDeleteOrgConfirm = false;
+
+  // Webhooks
+  webhooks: Webhook[] = [];
+  webhooksLoading = false;
+  newWebhookUrl = '';
+  newWebhookName = '';
+  newWebhookSecret = '';
+  newWebhookEvents: string[] = ['failure.created', 'failure.analyzed', 'failure.resolved'];
+  creatingWebhook = false;
+  showWebhookForm = false;
+  expandedWebhookDeliveries: string | null = null;
+  webhookDeliveriesMap: Record<string, { total: number; items: { id: string; event: string; statusCode?: number; success: boolean; attemptCount: number; errorMessage?: string; createdAt: string }[] }> = {};
+
+  // Security / Sessions
+  sessions: SessionInfo[] = [];
+  sessionsLoading = false;
+  revokingSessionId: string | null = null;
+
   constructor(
     private readonly configService: ConfigService,
     private readonly teamService: TeamService,
-    private readonly authService: AuthService,
+    readonly authService: AuthService,
     private readonly auditService: AuditService,
     private readonly billingService: BillingService,
+    private readonly profileService: ProfileService,
+    private readonly webhookService: WebhookService,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
     private readonly dialog: MatDialog,
@@ -2143,5 +2727,259 @@ export class ConfigurationComponent implements OnInit {
       default:
         return '<svg width="20" height="20" viewBox="0 0 24 24" fill="#6b7280"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="2"/></svg>';
     }
+  }
+
+  // ── Profile ───────────────────────────────────────────────────
+
+  getInitials(): string {
+    const u = this.authService.currentUser();
+    if (!u) return '?';
+    return `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() || u.email[0].toUpperCase();
+  }
+
+  switchToProfile(): void {
+    this.activeTab = 'profile';
+    const u = this.authService.currentUser();
+    if (u) {
+      this.profileFirstName = u.firstName;
+      this.profileLastName = u.lastName;
+    }
+  }
+
+  saveProfile(): void {
+    if (!this.profileFirstName.trim() || !this.profileLastName.trim()) {
+      this.snackBar.open('First and last name are required', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    this.savingProfile = true;
+    this.profileService.updateName(this.profileFirstName.trim(), this.profileLastName.trim()).subscribe({
+      next: (res) => {
+        this.savingProfile = false;
+        this.authService.updateUser({ firstName: res.firstName, lastName: res.lastName });
+        this.snackBar.open('Name updated successfully', 'OK', { duration: 3000 });
+      },
+      error: (err) => {
+        this.savingProfile = false;
+        this.snackBar.open(err?.error?.message ?? 'Failed to update name', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  changePassword(): void {
+    if (!this.profilePasswordCurrent || !this.profilePasswordNew) {
+      this.snackBar.open('Please fill in all password fields', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    if (this.profilePasswordNew !== this.profilePasswordConfirm) {
+      this.snackBar.open('New passwords do not match', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    if (this.profilePasswordNew.length < 8) {
+      this.snackBar.open('New password must be at least 8 characters', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    this.savingPassword = true;
+    this.profileService.changePassword(this.profilePasswordCurrent, this.profilePasswordNew).subscribe({
+      next: () => {
+        this.savingPassword = false;
+        this.profilePasswordCurrent = '';
+        this.profilePasswordNew = '';
+        this.profilePasswordConfirm = '';
+        this.snackBar.open('Password changed successfully', 'OK', { duration: 3000 });
+      },
+      error: (err) => {
+        this.savingPassword = false;
+        this.snackBar.open(err?.error?.message ?? 'Failed to change password', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  changeEmail(): void {
+    if (!this.profileNewEmail.trim() || !this.profileEmailPassword) {
+      this.snackBar.open('Email and password are required', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    this.savingEmail = true;
+    this.profileService.changeEmail(this.profileNewEmail.trim(), this.profileEmailPassword).subscribe({
+      next: (res) => {
+        this.savingEmail = false;
+        this.authService.updateUser({ email: res.email, emailVerified: res.emailVerified });
+        this.profileNewEmail = '';
+        this.profileEmailPassword = '';
+        this.snackBar.open('Email updated — please verify your new address', 'OK', { duration: 5000 });
+      },
+      error: (err) => {
+        this.savingEmail = false;
+        this.snackBar.open(err?.error?.message ?? 'Failed to update email', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  // ── Organization ─────────────────────────────────────────────
+
+  switchToOrganization(): void {
+    this.activeTab = 'organization';
+    if (!this.orgInfo && !this.orgLoading) this.loadOrg();
+  }
+
+  loadOrg(): void {
+    this.orgLoading = true;
+    this.profileService.getOrg().subscribe({
+      next: (org) => {
+        this.orgInfo = org;
+        this.orgName = org.name;
+        this.orgSlug = org.slug;
+        this.orgLoading = false;
+      },
+      error: () => {
+        this.orgLoading = false;
+        this.snackBar.open('Failed to load organization info', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  saveOrg(): void {
+    if (!this.orgName.trim()) {
+      this.snackBar.open('Organization name is required', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    this.savingOrg = true;
+    this.profileService.updateOrg(this.orgName.trim(), this.orgSlug.trim() || undefined).subscribe({
+      next: (res) => {
+        this.savingOrg = false;
+        if (this.orgInfo) {
+          this.orgInfo = { ...this.orgInfo, name: res.name, slug: res.slug };
+          this.orgName = res.name;
+          this.orgSlug = res.slug;
+        }
+        this.authService.updateUser({ organizationName: res.name });
+        this.snackBar.open('Organization updated', 'OK', { duration: 3000 });
+      },
+      error: (err) => {
+        this.savingOrg = false;
+        this.snackBar.open(err?.error?.message ?? 'Failed to update organization', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  deleteOrg(): void {
+    if (!this.orgDeletePassword) return;
+    this.deletingOrg = true;
+    this.profileService.deleteOrg(this.orgDeletePassword).subscribe({
+      next: () => {
+        this.authService.logout();
+        this.router.navigate(['/login']);
+      },
+      error: (err) => {
+        this.deletingOrg = false;
+        this.snackBar.open(err?.error?.message ?? 'Failed to delete organization', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  // ── Webhooks ──────────────────────────────────────────────────
+
+  switchToWebhooks(): void {
+    this.activeTab = 'webhooks';
+    if (this.webhooks.length === 0 && !this.webhooksLoading) this.loadWebhooks();
+  }
+
+  loadWebhooks(): void {
+    this.webhooksLoading = true;
+    this.webhookService.list().then(wh => {
+      this.webhooks = wh;
+      this.webhooksLoading = false;
+    }).catch(() => {
+      this.webhooksLoading = false;
+      this.snackBar.open('Failed to load webhooks', 'Dismiss', { duration: 4000 });
+    });
+  }
+
+  createWebhook(): void {
+    if (!this.newWebhookUrl.trim()) return;
+    this.creatingWebhook = true;
+    const dto: CreateWebhookDto = {
+      name: this.newWebhookName.trim() || undefined,
+      url: this.newWebhookUrl.trim(),
+      secret: this.newWebhookSecret.trim() || undefined,
+      events: this.newWebhookEvents,
+    };
+    this.webhookService.create(dto).then(wh => {
+      this.webhooks = [wh, ...this.webhooks];
+      this.newWebhookUrl = '';
+      this.newWebhookName = '';
+      this.newWebhookSecret = '';
+      this.showWebhookForm = false;
+      this.creatingWebhook = false;
+      this.snackBar.open('Webhook created', 'OK', { duration: 3000 });
+    }).catch((err) => {
+      this.creatingWebhook = false;
+      this.snackBar.open(err?.error?.message ?? 'Failed to create webhook', 'Dismiss', { duration: 4000 });
+    });
+  }
+
+  toggleWebhook(wh: Webhook): void {
+    this.webhookService.update(wh.id, { isActive: !wh.isActive }).then(() => {
+      wh.isActive = !wh.isActive;
+      this.snackBar.open(`Webhook ${wh.isActive ? 'activated' : 'paused'}`, 'OK', { duration: 2500 });
+    }).catch(() => this.snackBar.open('Failed to update webhook', 'Dismiss', { duration: 4000 }));
+  }
+
+  deleteWebhook(id: string): void {
+    if (!confirm('Delete this webhook? Deliveries will stop immediately.')) return;
+    this.webhookService.delete(id).then(() => {
+      this.webhooks = this.webhooks.filter(w => w.id !== id);
+      this.snackBar.open('Webhook deleted', 'OK', { duration: 2500 });
+    }).catch(() => this.snackBar.open('Failed to delete webhook', 'Dismiss', { duration: 4000 }));
+  }
+
+  testWebhook(id: string): void {
+    this.webhookService.test(id).then(() => {
+      this.snackBar.open('Test delivery sent', 'OK', { duration: 3000 });
+    }).catch((err) => {
+      this.snackBar.open(err?.error?.message ?? 'Test failed', 'Dismiss', { duration: 4000 });
+    });
+  }
+
+  toggleDeliveries(id: string): void {
+    this.expandedWebhookDeliveries = this.expandedWebhookDeliveries === id ? null : id;
+  }
+
+  // ── Security / Sessions ───────────────────────────────────────
+
+  switchToSecurity(): void {
+    this.activeTab = 'security';
+    if (this.sessions.length === 0 && !this.sessionsLoading) this.loadSessions();
+  }
+
+  loadSessions(): void {
+    this.sessionsLoading = true;
+    this.profileService.getSessions().then(s => {
+      this.sessions = s;
+      this.sessionsLoading = false;
+    }).catch(() => {
+      this.sessionsLoading = false;
+      this.snackBar.open('Failed to load sessions', 'Dismiss', { duration: 4000 });
+    });
+  }
+
+  revokeSession(id: string): void {
+    this.revokingSessionId = id;
+    this.profileService.revokeSession(id).then(() => {
+      this.sessions = this.sessions.filter(s => s.id !== id);
+      this.revokingSessionId = null;
+      this.snackBar.open('Session revoked', 'OK', { duration: 2500 });
+    }).catch(() => {
+      this.revokingSessionId = null;
+      this.snackBar.open('Failed to revoke session', 'Dismiss', { duration: 4000 });
+    });
+  }
+
+  revokeOtherSessions(): void {
+    if (!confirm('Sign out all other sessions? You will remain logged in on this device.')) return;
+    this.profileService.revokeOtherSessions().then(() => {
+      this.loadSessions();
+      this.snackBar.open('All other sessions signed out', 'OK', { duration: 3000 });
+    }).catch(() => this.snackBar.open('Failed to revoke sessions', 'Dismiss', { duration: 4000 }));
   }
 }

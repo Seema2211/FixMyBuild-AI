@@ -23,4 +23,8 @@ public static class ClaimsPrincipalExtensions
     public static string? GetRole(this ClaimsPrincipal principal)
         => principal.FindFirstValue(ClaimTypes.Role)       // JWT middleware maps "role" → ClaimTypes.Role
         ?? principal.FindFirstValue("role");               // fallback for raw "role" claim
+
+    /// <summary>Returns true if the authenticated user has the superAdmin claim.</summary>
+    public static bool IsSuperAdmin(this ClaimsPrincipal principal)
+        => principal.FindFirstValue("superAdmin") == "true";
 }

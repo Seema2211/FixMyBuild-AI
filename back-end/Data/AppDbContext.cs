@@ -20,6 +20,13 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 
+    // ── Notifications ───────────────────────────────────────────
+    public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
+
+    // ── Webhooks ─────────────────────────────────────────────────
+    public DbSet<OutboundWebhook> OutboundWebhooks => Set<OutboundWebhook>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+
     // ── Billing ─────────────────────────────────────────────────
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<SubscriptionUsage> SubscriptionUsages => Set<SubscriptionUsage>();
@@ -106,6 +113,39 @@ public class AppDbContext : DbContext
             e.HasIndex(t => new { t.UserId, t.Type });
             e.Property(t => t.Type).HasMaxLength(50);
             e.HasOne(t => t.User).WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── AppNotification ─────────────────────────────────────
+        modelBuilder.Entity<AppNotification>(e =>
+        {
+            e.HasKey(n => n.Id);
+            e.HasIndex(n => new { n.OrganizationId, n.CreatedAt });
+            e.HasIndex(n => new { n.UserId, n.IsRead });
+            e.Property(n => n.Title).HasMaxLength(200);
+            e.Property(n => n.Type).HasMaxLength(20);
+            e.HasOne(n => n.Organization).WithMany().HasForeignKey(n => n.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── OutboundWebhook ──────────────────────────────────────
+        modelBuilder.Entity<OutboundWebhook>(e =>
+        {
+            e.HasKey(w => w.Id);
+            e.HasIndex(w => w.OrganizationId);
+            e.Property(w => w.Name).HasMaxLength(100);
+            e.Property(w => w.Url).HasMaxLength(2048);
+            e.Property(w => w.Events).HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>()
+            ).HasColumnType("text");
+            e.HasOne(w => w.Organization).WithMany().HasForeignKey(w => w.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── WebhookDelivery ─────────────────────────────────────
+        modelBuilder.Entity<WebhookDelivery>(e =>
+        {
+            e.HasKey(d => d.Id);
+            e.HasIndex(d => new { d.WebhookId, d.CreatedAt });
+            e.HasOne(d => d.Webhook).WithMany(w => w.Deliveries).HasForeignKey(d => d.WebhookId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── AuditLog ────────────────────────────────────────────

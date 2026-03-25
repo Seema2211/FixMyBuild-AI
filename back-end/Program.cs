@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using FixMyBuildApi.Data;
 using FixMyBuildApi.Extensions;
 using FixMyBuildApi.Services;
+using FixMyBuildApi.Services.Providers;
 using FixMyBuildApi.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -44,19 +45,41 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SuperAdmin", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireClaim("superAdmin", "true"));
+});
 
 // ── HTTP Clients ──────────────────────────────────────────────
+builder.Services.AddHttpClient("WebhookDelivery", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("FixMyBuild-Webhooks/1.0");
+});
+
 builder.Services.AddHttpClient("GitHub", client =>
 {
     client.BaseAddress = new Uri("https://api.github.com/");
     client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github.v3+json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    UseProxy = true,
+    Proxy = System.Net.WebRequest.GetSystemWebProxy(),
+    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
 });
 
 builder.Services.AddHttpClient("GitHubLogsDownload", client =>
 {
     client.Timeout = TimeSpan.FromMinutes(2);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("FixMyBuild-AI");
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    UseProxy = true,
+    Proxy = System.Net.WebRequest.GetSystemWebProxy(),
+    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
 });
 
 builder.Services.AddHttpClient<IAIAnalyzerService, AIAnalyzerService>(client =>
@@ -67,6 +90,12 @@ builder.Services.AddHttpClient<IAIAnalyzerService, AIAnalyzerService>(client =>
 // ── Services ──────────────────────────────────────────────────
 builder.Services.AddScoped<IGitHubService, GitHubService>();
 builder.Services.AddScoped<IPipelineService, PipelineService>();
+
+// ── VCS providers (one per supported platform) ───────────────
+builder.Services.AddScoped<IVcsProvider, GitHubVcsProvider>();
+builder.Services.AddScoped<IVcsProvider, GitLabVcsProvider>();
+builder.Services.AddScoped<IVcsProvider, AzureDevOpsVcsProvider>();
+builder.Services.AddScoped<IAutoFixService, AutoFixService>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -74,6 +103,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddSingleton<ISseService, SseService>();
+builder.Services.AddScoped<IWebhookDeliveryService, WebhookDeliveryService>();
 
 // ── Background Worker ─────────────────────────────────────────
 builder.Services.AddHostedService<PipelineMonitorWorker>();
@@ -122,5 +153,10 @@ app.MapOnboardingEndpoints();
 app.MapTeamEndpoints();
 app.MapAuditEndpoints();
 app.MapBillingEndpoints();
+app.MapAdminEndpoints();
+app.MapProfileEndpoints();
+app.MapSseEndpoints();
+app.MapNotificationEndpoints();
+app.MapWebhookEndpoints();
 
 app.Run();

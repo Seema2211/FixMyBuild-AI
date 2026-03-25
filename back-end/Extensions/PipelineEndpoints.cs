@@ -46,10 +46,13 @@ public static class PipelineEndpoints
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
 
-            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Analytics); }
-            catch (PlanLimitException ex)
+            if (!user.IsSuperAdmin())
             {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+                try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.Analytics); }
+                catch (PlanLimitException ex)
+                {
+                    return ApiErrors.PlanLimit(ex);
+                }
             }
 
             var analytics = await pipelineService.GetAnalyticsAsync(orgId, ct);
@@ -72,10 +75,13 @@ public static class PipelineEndpoints
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
 
-            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AiAnalysis); }
-            catch (PlanLimitException ex)
+            if (!user.IsSuperAdmin())
             {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
+                try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AiAnalysis); }
+                catch (PlanLimitException ex)
+                {
+                    return ApiErrors.PlanLimit(ex);
+                }
             }
 
             if (string.IsNullOrWhiteSpace(request.Owner) || string.IsNullOrWhiteSpace(request.Repo))
@@ -89,42 +95,31 @@ public static class PipelineEndpoints
         });
 
         // POST /api/pipelines/create-pr
-        group.MapPost("/create-pr", async (PullRequestRequest request, ClaimsPrincipal user, IPipelineService pipelineService, IGitHubService githubService, ISubscriptionService subscriptionService, CancellationToken ct) =>
+        group.MapPost("/create-pr", async (PullRequestRequest request, ClaimsPrincipal user,
+            IPipelineService pipelineService, IAutoFixService autoFixService, CancellationToken ct) =>
         {
             var orgId = user.GetOrgId();
             if (orgId is null) return Results.Unauthorized();
-
-            try { await subscriptionService.EnforceLimitAsync(orgId.Value, LimitType.AutoPr); }
-            catch (PlanLimitException ex)
-            {
-                return Results.Json(new { error = "plan_limit", limit = ex.LimitName, plan = ex.CurrentPlan.ToString().ToLower(), upgradeUrl = "/pricing" }, statusCode: 402);
-            }
 
             var failure = await pipelineService.GetFailureByIdAsync(request.PipelineFailureId, orgId, ct);
             if (failure is null)
                 return Results.NotFound("Pipeline failure not found.");
 
-            var owner = request.RepoOwner ?? failure.RepoOwner ?? "";
-            var repo = request.RepoName ?? failure.RepoName ?? "";
-            if (string.IsNullOrEmpty(owner) || string.IsNullOrEmpty(repo))
+            // Allow caller to override repo coordinates (UI passes them explicitly)
+            if (!string.IsNullOrWhiteSpace(request.RepoOwner)) failure.RepoOwner = request.RepoOwner;
+            if (!string.IsNullOrWhiteSpace(request.RepoName))  failure.RepoName  = request.RepoName;
+
+            if (string.IsNullOrEmpty(failure.RepoOwner) || string.IsNullOrEmpty(failure.RepoName))
                 return Results.BadRequest("Repo owner and name are required.");
 
-            var branchName = request.BranchName ?? $"fixmybuild/fix-{failure.RunId ?? 0}";
-            var fixContent = $"# Fix suggestion\n\n{failure.FixSuggestion}";
-            if (failure.KeyErrorLines?.Count > 0)
-                fixContent += "\n\n## Key error lines\n```\n" + string.Join("\n", failure.KeyErrorLines) + "\n```";
+            // forceCreate = true bypasses the confidence threshold for manual triggers
+            var result = await autoFixService.RunAsync(failure, null, orgId.Value, forceCreate: true, ct: ct);
 
-            var pr = await githubService.CreatePullRequestAsync(owner, repo, branchName, fixContent,
-                $"Fix: {failure.RootCause}",
-                $"Fix: {failure.RootCause}",
-                $"AI-suggested fix for pipeline failure (confidence: {failure.Confidence}%).\n\n{failure.ErrorSummary ?? failure.Explanation}",
-                ct);
+            if (result.PullRequest == null)
+                return Results.Problem(result.SkippedReason ?? "Failed to create pull request.");
 
-            if (pr is null)
-                return Results.Problem("Failed to create pull request.");
-
-            var updated = await pipelineService.UpdatePullRequestAsync(failure.Id, pr, ct);
-            return Results.Ok(pr);
+            await pipelineService.UpdatePullRequestAsync(failure.Id, result.PullRequest, ct);
+            return Results.Ok(result.PullRequest);
         });
 
         // POST /api/demo/seed — seeds demo data for the authenticated org

@@ -1,3 +1,4 @@
+using FixMyBuildApi.Constants;
 using FixMyBuildApi.Data;
 using FixMyBuildApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -8,8 +9,6 @@ public class PipelineService : IPipelineService
 {
     private readonly AppDbContext _db;
     private readonly IServiceScopeFactory _scopeFactory;
-    private const int ConfidenceThresholdForAutoPr = 70;
-
     public PipelineService(AppDbContext db, IServiceScopeFactory scopeFactory)
     {
         _db = db;
@@ -53,47 +52,16 @@ public class PipelineService : IPipelineService
                 }
                 catch { /* Notification is best-effort */ }
 
-                // ── Post AI analysis comment on any open PR for this branch ──
-                if (!string.IsNullOrWhiteSpace(run.HeadBranch))
+                // ── Auto-fix: comment on open PRs + create fix PR ──
+                // orgId is unknown for config-based monitor; AutoFixService returns gracefully.
+                try
                 {
-                    try
-                    {
-                        var openPrs = await github.GetOpenPrsForBranchAsync(owner, repo, run.HeadBranch, cancellationToken);
-                        if (openPrs.Count > 0 && analysis != null)
-                        {
-                            var comment = BuildPrComment(failure, analysis);
-                            var (prNum, prUrl) = openPrs[0];
-                            await github.PostPrCommentAsync(owner, repo, prNum, comment, cancellationToken);
-                            failure.PrCommentPosted = true;
-                            failure.SourcePrNumber = prNum;
-                            failure.SourcePrUrl = prUrl;
-                            await UpsertAsync(failure, cancellationToken);
-                        }
-                    }
-                    catch { /* Comment posting is best-effort */ }
+                    var autoFix = scope.ServiceProvider.GetRequiredService<IAutoFixService>();
+                    var result = await autoFix.RunAsync(failure, analysis, Guid.Empty, ct: cancellationToken);
+                    if (result.PullRequest != null || result.CommentPosted)
+                        await UpsertAsync(failure, cancellationToken);
                 }
-
-                if (analysis != null && analysis.Confidence >= ConfidenceThresholdForAutoPr &&
-                    !string.IsNullOrWhiteSpace(analysis.FixSuggestion))
-                {
-                    try
-                    {
-                        var branchName = $"fixmybuild/fix-{run.RunId}";
-                        var fixContent = BuildFixContent(analysis.FixSuggestion, analysis.KeyErrorLines);
-                        var pr = await github.CreatePullRequestAsync(owner, repo, branchName, fixContent,
-                            $"Fix: {analysis.RootCause}",
-                            $"Fix: {analysis.RootCause}",
-                            $"AI-suggested fix for pipeline failure (confidence: {analysis.Confidence}%).\n\n{analysis.ErrorSummary}",
-                            cancellationToken);
-
-                        if (pr != null)
-                        {
-                            failure.CreatedPullRequest = pr;
-                            await UpsertAsync(failure, cancellationToken);
-                        }
-                    }
-                    catch { /* Keep failure without PR */ }
-                }
+                catch { /* best-effort */ }
             }
             catch
             {
@@ -101,7 +69,7 @@ public class PipelineService : IPipelineService
                 {
                     Id = id,
                     PipelineName = run.WorkflowName,
-                    Status = "failure",
+                    Status = FailureStatus.Failure,
                     ErrorLog = "Failed to fetch or analyze logs.",
                     RootCause = "Unknown",
                     Confidence = 0,
@@ -150,46 +118,15 @@ public class PipelineService : IPipelineService
                 }
                 catch { /* Notification is best-effort */ }
 
-                if (!string.IsNullOrWhiteSpace(run.HeadBranch))
+                // ── Auto-fix: comment on open PRs + create fix PR ──
+                try
                 {
-                    try
-                    {
-                        var openPrs = await github.GetOpenPrsForBranchAsync(owner, repo, run.HeadBranch, token, cancellationToken);
-                        if (openPrs.Count > 0 && analysis != null)
-                        {
-                            var comment = BuildPrComment(failure, analysis);
-                            var (prNum, prUrl) = openPrs[0];
-                            await github.PostPrCommentAsync(owner, repo, prNum, comment, token, cancellationToken);
-                            failure.PrCommentPosted = true;
-                            failure.SourcePrNumber = prNum;
-                            failure.SourcePrUrl = prUrl;
-                            await UpsertAsync(failure, cancellationToken);
-                        }
-                    }
-                    catch { /* Comment posting is best-effort */ }
+                    var autoFix = scope.ServiceProvider.GetRequiredService<IAutoFixService>();
+                    var result = await autoFix.RunAsync(failure, analysis, orgId ?? Guid.Empty, ct: cancellationToken);
+                    if (result.PullRequest != null || result.CommentPosted)
+                        await UpsertAsync(failure, cancellationToken);
                 }
-
-                if (analysis != null && analysis.Confidence >= ConfidenceThresholdForAutoPr &&
-                    !string.IsNullOrWhiteSpace(analysis.FixSuggestion))
-                {
-                    try
-                    {
-                        var branchName = $"fixmybuild/fix-{run.RunId}";
-                        var fixContent = BuildFixContent(analysis.FixSuggestion, analysis.KeyErrorLines);
-                        var pr = await github.CreatePullRequestAsync(owner, repo, branchName, fixContent,
-                            $"Fix: {analysis.RootCause}",
-                            $"Fix: {analysis.RootCause}",
-                            $"AI-suggested fix for pipeline failure (confidence: {analysis.Confidence}%).\n\n{analysis.ErrorSummary}",
-                            token, cancellationToken);
-
-                        if (pr != null)
-                        {
-                            failure.CreatedPullRequest = pr;
-                            await UpsertAsync(failure, cancellationToken);
-                        }
-                    }
-                    catch { /* Keep failure without PR */ }
-                }
+                catch { /* best-effort */ }
             }
             catch
             {
@@ -197,7 +134,7 @@ public class PipelineService : IPipelineService
                 {
                     Id = id,
                     PipelineName = run.WorkflowName,
-                    Status = "failure",
+                    Status = FailureStatus.Failure,
                     ErrorLog = "Failed to fetch or analyze logs.",
                     RootCause = "Unknown",
                     Confidence = 0,
@@ -244,25 +181,15 @@ public class PipelineService : IPipelineService
             }
             catch { /* Notification is best-effort */ }
 
-            // Post comment on any open PR for this branch
-            if (!string.IsNullOrWhiteSpace(headBranch) && analysis != null)
+            // ── Auto-fix: comment on open PRs + create fix PR ──
+            try
             {
-                try
-                {
-                    var openPrs = await github.GetOpenPrsForBranchAsync(owner, repo, headBranch, cancellationToken);
-                    if (openPrs.Count > 0)
-                    {
-                        var comment = BuildPrComment(failure, analysis);
-                        var (prNum, prUrl) = openPrs[0];
-                        await github.PostPrCommentAsync(owner, repo, prNum, comment, cancellationToken);
-                        failure.PrCommentPosted = true;
-                        failure.SourcePrNumber = prNum;
-                        failure.SourcePrUrl = prUrl;
-                        await UpsertAsync(failure, cancellationToken);
-                    }
-                }
-                catch { /* Best-effort */ }
+                var autoFix = scope.ServiceProvider.GetRequiredService<IAutoFixService>();
+                var result = await autoFix.RunAsync(failure, analysis, orgId ?? Guid.Empty, ct: cancellationToken);
+                if (result.PullRequest != null || result.CommentPosted)
+                    await UpsertAsync(failure, cancellationToken);
             }
+            catch { /* best-effort */ }
 
             return failure;
         }
@@ -272,7 +199,7 @@ public class PipelineService : IPipelineService
             {
                 Id = id,
                 PipelineName = workflowName,
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 ErrorLog = "Failed to fetch or analyze logs.",
                 RootCause = "Unknown",
                 Confidence = 0,
@@ -535,7 +462,7 @@ public class PipelineService : IPipelineService
             new() {
                 Id = "demo:sample-repo:1001",
                 PipelineName = "CI / Build & Test",
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 FailedStage = "Run tests",
                 ErrorSummary = "Unit tests failed due to missing environment variable",
                 RootCause = "Missing DATABASE_URL environment variable in CI environment",
@@ -554,7 +481,7 @@ public class PipelineService : IPipelineService
             new() {
                 Id = "demo:sample-repo:1002",
                 PipelineName = "Deploy to Production",
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 FailedStage = "Docker Build",
                 ErrorSummary = "Docker build failed due to missing base image",
                 RootCause = "Base image 'node:18-alpine' not found in private registry",
@@ -586,7 +513,7 @@ public class PipelineService : IPipelineService
             new() {
                 Id = "demo:sample-repo:1003",
                 PipelineName = "Lint & Format Check",
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 FailedStage = "ESLint",
                 ErrorSummary = "ESLint found 7 errors across 3 files",
                 RootCause = "Unused variables and missing semicolons violating eslint rules",
@@ -605,7 +532,7 @@ public class PipelineService : IPipelineService
             new() {
                 Id = "demo:sample-repo:1004",
                 PipelineName = "CI / Build & Test",
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 FailedStage = "npm install",
                 ErrorSummary = "npm install failed due to peer dependency conflict",
                 RootCause = "react-dom@18 conflicts with legacy-peer-deps requirement from react-scripts@4",
@@ -624,7 +551,7 @@ public class PipelineService : IPipelineService
             new() {
                 Id = "demo:sample-repo:1005",
                 PipelineName = "Security Scan",
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 FailedStage = "Snyk Security Check",
                 ErrorSummary = "3 critical vulnerabilities found in dependencies",
                 RootCause = "Outdated lodash@4.17.15 contains prototype pollution vulnerability (CVE-2021-23337)",
@@ -643,7 +570,7 @@ public class PipelineService : IPipelineService
             new() {
                 Id = "demo:sample-repo:1006",
                 PipelineName = "Integration Tests",
-                Status = "failure",
+                Status = FailureStatus.Failure,
                 FailedStage = "API Integration Tests",
                 ErrorSummary = "Integration tests timed out connecting to external service",
                 RootCause = "Third-party payment API endpoint unreachable during test run — no retry or mock configured",
@@ -661,7 +588,7 @@ public class PipelineService : IPipelineService
             },
             // ── Extra trend data across multiple days ──────────
             new() {
-                Id = "demo:web-app:2001", PipelineName = "CI / Build", Status = "failure",
+                Id = "demo:web-app:2001", PipelineName = "CI / Build", Status = FailureStatus.Failure,
                 FailedStage = "TypeScript Compile", ErrorSummary = "TS2345: Argument type mismatch",
                 RootCause = "TypeScript strict mode caught type error in auth module",
                 Category = "Code", FixSuggestion = "Fix the type assertion in src/auth/login.ts line 42.",
@@ -671,7 +598,7 @@ public class PipelineService : IPipelineService
                 CreatedAt = DateTime.UtcNow.AddDays(-1).AddHours(-3)
             },
             new() {
-                Id = "demo:web-app:2002", PipelineName = "E2E Tests", Status = "failure",
+                Id = "demo:web-app:2002", PipelineName = "E2E Tests", Status = FailureStatus.Failure,
                 FailedStage = "Playwright Tests", ErrorSummary = "Timeout waiting for login page",
                 RootCause = "Login page selector changed after UI redesign",
                 Category = "Test", FixSuggestion = "Update the Playwright selector from '#login-btn' to '[data-testid=login]'.",
@@ -681,7 +608,7 @@ public class PipelineService : IPipelineService
                 CreatedAt = DateTime.UtcNow.AddDays(-1).AddHours(-7)
             },
             new() {
-                Id = "demo:api-service:3001", PipelineName = "CI / Build & Test", Status = "failure",
+                Id = "demo:api-service:3001", PipelineName = "CI / Build & Test", Status = FailureStatus.Failure,
                 FailedStage = "dotnet build", ErrorSummary = "Build failed due to missing NuGet package",
                 RootCause = "Package 'Newtonsoft.Json' version 13.0.4 not found in configured feeds",
                 Category = "Dependency", FixSuggestion = "Run 'dotnet restore' or add nuget.org as a package source in NuGet.config.",
@@ -696,7 +623,7 @@ public class PipelineService : IPipelineService
                 }
             },
             new() {
-                Id = "demo:api-service:3002", PipelineName = "Deploy to Staging", Status = "failure",
+                Id = "demo:api-service:3002", PipelineName = "Deploy to Staging", Status = FailureStatus.Failure,
                 FailedStage = "Kubernetes Deploy", ErrorSummary = "Pod crashloop due to missing config map",
                 RootCause = "ConfigMap 'app-settings' not found in staging namespace",
                 Category = "Infrastructure", FixSuggestion = "Create the ConfigMap in staging: kubectl create configmap app-settings --from-file=config/",
@@ -706,7 +633,7 @@ public class PipelineService : IPipelineService
                 CreatedAt = DateTime.UtcNow.AddDays(-3).AddHours(-5)
             },
             new() {
-                Id = "demo:mobile-app:4001", PipelineName = "iOS Build", Status = "failure",
+                Id = "demo:mobile-app:4001", PipelineName = "iOS Build", Status = FailureStatus.Failure,
                 FailedStage = "xcodebuild", ErrorSummary = "Code signing error for distribution profile",
                 RootCause = "Provisioning profile expired on March 15",
                 Category = "Configuration", FixSuggestion = "Renew the provisioning profile in Apple Developer portal and update the CI secrets.",
@@ -716,7 +643,7 @@ public class PipelineService : IPipelineService
                 CreatedAt = DateTime.UtcNow.AddDays(-4).AddHours(-1)
             },
             new() {
-                Id = "demo:mobile-app:4002", PipelineName = "Android Build", Status = "failure",
+                Id = "demo:mobile-app:4002", PipelineName = "Android Build", Status = FailureStatus.Failure,
                 FailedStage = "Gradle Build", ErrorSummary = "Gradle daemon OOM during build",
                 RootCause = "Insufficient heap memory for Gradle daemon in CI runner",
                 Category = "Infrastructure", FixSuggestion = "Increase Gradle JVM heap: add 'org.gradle.jvmargs=-Xmx4g' to gradle.properties.",
@@ -726,7 +653,7 @@ public class PipelineService : IPipelineService
                 CreatedAt = DateTime.UtcNow.AddDays(-4).AddHours(-6)
             },
             new() {
-                Id = "demo:web-app:2003", PipelineName = "CI / Build", Status = "failure",
+                Id = "demo:web-app:2003", PipelineName = "CI / Build", Status = FailureStatus.Failure,
                 FailedStage = "npm run build", ErrorSummary = "Webpack build failed on CSS module import",
                 RootCause = "CSS modules file not found after directory restructure",
                 Category = "Code", FixSuggestion = "Update import path from './styles/Button.module.css' to './components/Button/Button.module.css'.",
@@ -741,7 +668,7 @@ public class PipelineService : IPipelineService
                 }
             },
             new() {
-                Id = "demo:sample-repo:1007", PipelineName = "CI / Build & Test", Status = "failure",
+                Id = "demo:sample-repo:1007", PipelineName = "CI / Build & Test", Status = FailureStatus.Failure,
                 FailedStage = "pytest", ErrorSummary = "Python tests failed on assertion error",
                 RootCause = "API response format changed from list to paginated object",
                 Category = "Test", FixSuggestion = "Update test assertion to check response['items'] instead of response directly.",
@@ -751,7 +678,7 @@ public class PipelineService : IPipelineService
                 CreatedAt = DateTime.UtcNow.AddDays(-5).AddHours(-9)
             },
             new() {
-                Id = "demo:api-service:3003", PipelineName = "Security Scan", Status = "failure",
+                Id = "demo:api-service:3003", PipelineName = "Security Scan", Status = FailureStatus.Failure,
                 FailedStage = "Trivy Container Scan", ErrorSummary = "Critical CVE found in base image",
                 RootCause = "Alpine 3.18 base image contains CVE-2024-0001 in libcrypto",
                 Category = "Security", FixSuggestion = "Update FROM alpine:3.18 to FROM alpine:3.19 in Dockerfile.",
@@ -761,7 +688,7 @@ public class PipelineService : IPipelineService
                 CreatedAt = DateTime.UtcNow.AddDays(-6).AddHours(-2)
             },
             new() {
-                Id = "demo:web-app:2004", PipelineName = "Lighthouse CI", Status = "failure",
+                Id = "demo:web-app:2004", PipelineName = "Lighthouse CI", Status = FailureStatus.Failure,
                 FailedStage = "Performance Audit", ErrorSummary = "Performance score below threshold",
                 RootCause = "Unoptimized images and render-blocking JavaScript",
                 Category = "Code", FixSuggestion = "Add lazy loading to images and defer non-critical JS. Use next/image for automatic optimization.",
@@ -820,14 +747,6 @@ public class PipelineService : IPipelineService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private static string BuildFixContent(string fixSuggestion, List<string>? keyErrorLines)
-    {
-        var content = $"# Fix suggestion\n\n{fixSuggestion}";
-        if (keyErrorLines?.Count > 0)
-            content += "\n\n## Key error lines\n```\n" + string.Join("\n", keyErrorLines) + "\n```";
-        return content;
-    }
-
     private static PipelineFailure MapToPipelineFailure(string id, string workflowName, string errorLog,
         string owner, string repo, long runId, string? headBranch, AIAnalysis? analysis, PipelineRun? run = null, Guid? orgId = null)
     {
@@ -835,7 +754,7 @@ public class PipelineService : IPipelineService
         {
             Id = id,
             PipelineName = workflowName,
-            Status = "failure",
+            Status = FailureStatus.Failure,
             ErrorLog = errorLog,
             FailedStage = analysis?.FailedStage,
             ErrorSummary = analysis?.ErrorSummary,
@@ -860,55 +779,4 @@ public class PipelineService : IPipelineService
         };
     }
 
-    private static string BuildPrComment(PipelineFailure failure, AIAnalysis analysis)
-    {
-        var severityIcon = (analysis.Severity?.ToLower()) switch
-        {
-            "high"   => "🔴",
-            "medium" => "🟡",
-            "low"    => "🟢",
-            _        => "⚪"
-        };
-
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("## 🤖 FixMyBuild AI Analysis");
-        sb.AppendLine();
-        sb.AppendLine($"**Pipeline:** `{failure.PipelineName}`");
-        if (!string.IsNullOrWhiteSpace(analysis.FailedStage))
-            sb.AppendLine($"**Failed Stage:** `{analysis.FailedStage}`");
-        sb.AppendLine($"**Severity:** {severityIcon} {analysis.Severity?.ToUpper() ?? "UNKNOWN"}  ");
-        sb.AppendLine($"**Confidence:** {analysis.Confidence}%");
-        sb.AppendLine();
-        sb.AppendLine("---");
-        sb.AppendLine();
-        sb.AppendLine("### 🔍 Root Cause");
-        sb.AppendLine(analysis.RootCause);
-        sb.AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(analysis.FixSuggestion))
-        {
-            sb.AppendLine("### 💡 Suggested Fix");
-            sb.AppendLine(analysis.FixSuggestion);
-            sb.AppendLine();
-        }
-
-        if (analysis.KeyErrorLines?.Count > 0)
-        {
-            sb.AppendLine("### 🚨 Key Error Lines");
-            sb.AppendLine("```");
-            foreach (var line in analysis.KeyErrorLines)
-                sb.AppendLine(line);
-            sb.AppendLine("```");
-            sb.AppendLine();
-        }
-
-        if (failure.CreatedPullRequest?.HtmlUrl != null)
-            sb.AppendLine($"✅ **Auto-fix PR created → [{failure.CreatedPullRequest.Title}]({failure.CreatedPullRequest.HtmlUrl})**");
-
-        sb.AppendLine();
-        sb.AppendLine("---");
-        sb.AppendLine("*Analyzed automatically by [FixMyBuild AI](https://github.com) · This comment is generated by AI and may require human review.*");
-
-        return sb.ToString();
-    }
 }
