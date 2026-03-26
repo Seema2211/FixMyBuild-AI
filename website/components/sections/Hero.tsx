@@ -153,7 +153,7 @@ export function Hero() {
       {/* Top beam line */}
       <div className="absolute top-16 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32 grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 lg:py-28 grid lg:grid-cols-2 gap-10 lg:gap-24 items-center">
         {/* ── Left — copy ─────────────────────────────────────────── */}
         <div>
           {/* Eyebrow badge with animated glow ring */}
@@ -179,7 +179,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="text-5xl sm:text-6xl lg:text-[68px] font-extrabold leading-[1.06] tracking-tight mb-4"
+            className="text-4xl sm:text-5xl lg:text-[68px] font-extrabold leading-[1.06] tracking-tight mb-4"
           >
             <span className="text-[var(--foreground)]">Stop losing hours</span>
             <br />
@@ -238,7 +238,7 @@ export function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.5 }}
-            className="flex items-center gap-4"
+            className="flex items-center gap-3 flex-wrap"
           >
             {/* Avatars */}
             <div className="flex -space-x-2">

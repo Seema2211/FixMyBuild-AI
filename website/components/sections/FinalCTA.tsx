@@ -4,7 +4,7 @@ import { ArrowRight, Mail } from 'lucide-react';
 
 export function FinalCTA() {
   return (
-    <section className="relative py-32 overflow-hidden">
+    <section className="relative py-16 sm:py-24 lg:py-32 overflow-hidden">
       {/* Large glowing orb */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-[600px] h-[400px] bg-indigo-600/15 dark:bg-indigo-600/20 rounded-full blur-[100px]" />
@@ -33,7 +33,7 @@ export function FinalCTA() {
             Get started today
           </div>
 
-          <h2 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.06] mb-6 text-slate-900 dark:text-white">
+          <h2 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.06] mb-6 text-slate-900 dark:text-white">
             Stop debugging.{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
               Start shipping.
@@ -67,7 +67,7 @@ export function FinalCTA() {
           </p>
 
           {/* Trust badges */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-6">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-6">
             {[
               { label: 'SOC 2 Ready', icon: '🔒' },
               { label: 'GDPR Compliant', icon: '🇪🇺' },

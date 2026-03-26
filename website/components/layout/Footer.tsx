@@ -35,9 +35,9 @@ export function Footer() {
       <div className="absolute inset-0 bg-grid opacity-20" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-8 mb-10 sm:mb-12">
           {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-2 sm:col-span-4 md:col-span-1">
             <a href="/" className="flex items-center gap-2 mb-4 group">
               <div className="relative">
                 <div className="absolute inset-0 rounded-lg bg-indigo-500/30 blur-md group-hover:bg-indigo-500/50 transition-all" />

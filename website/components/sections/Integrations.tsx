@@ -48,13 +48,13 @@ function MarqueeRow({ items, reverse = false }: { items: typeof INTEGRATION_ITEM
 
 export function Integrations() {
   return (
-    <section id="integrations" className="py-24 lg:py-32 overflow-hidden relative">
+    <section id="integrations" className="py-14 sm:py-24 lg:py-32 overflow-hidden relative">
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-indigo-500/[0.04] dark:bg-indigo-600/[0.06] rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-14">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10 sm:mb-14">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -77,11 +77,11 @@ export function Integrations() {
       </div>
 
       {/* Marquee rows */}
-      <div className="space-y-4 mb-16">
+      <div className="space-y-4 mb-10 sm:mb-16">
         {[false, true].map((rev, ri) => (
           <div key={ri} className="relative">
-            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[var(--background)] to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[var(--background)] to-transparent z-10 pointer-events-none" />
+            <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-32 bg-gradient-to-r from-[var(--background)] to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-32 bg-gradient-to-l from-[var(--background)] to-transparent z-10 pointer-events-none" />
             <MarqueeRow items={rev ? [...INTEGRATION_ITEMS].reverse() : INTEGRATION_ITEMS} reverse={rev} />
           </div>
         ))}

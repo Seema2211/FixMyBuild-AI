@@ -152,14 +152,14 @@ const FEATURES = [
 ];
 
 const sizeClasses: Record<string, string> = {
-  large:  'lg:col-span-2 lg:row-span-2',
-  medium: 'lg:col-span-2',
+  large:  'sm:col-span-2 lg:col-span-2 lg:row-span-2',
+  medium: 'sm:col-span-2 lg:col-span-2',
   small:  'lg:col-span-1',
 };
 
 export function Features() {
   return (
-    <section id="features" className="py-24 lg:py-32 relative">
+    <section id="features" className="py-14 sm:py-24 lg:py-32 relative">
       {/* Ambient glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-indigo-500/[0.04] dark:bg-indigo-600/[0.06] rounded-full blur-[120px] pointer-events-none" />
 
@@ -168,7 +168,7 @@ export function Features() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-16"
         >
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/25 bg-indigo-500/8 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-4 uppercase tracking-widest">
             Features
@@ -184,7 +184,7 @@ export function Features() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 auto-rows-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-auto">
           {FEATURES.map((feature, i) => (
             <motion.div
               key={feature.title}

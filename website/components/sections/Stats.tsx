@@ -95,7 +95,7 @@ function CountUp({ end, suffix = '', isSpecial, display }: { end: number; suffix
 
 export function Stats() {
   return (
-    <section className="relative py-20 overflow-hidden">
+    <section className="relative py-14 sm:py-20 overflow-hidden">
       {/* Top + bottom border beams */}
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-500/25 to-transparent" />
       <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-500/25 to-transparent" />
@@ -116,7 +116,7 @@ export function Stats() {
             >
               {/* Glass card */}
               <div className="p-px rounded-2xl bg-gradient-to-br from-white/15 via-white/5 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent from-slate-200/80">
-                <div className="rounded-[15px] bg-white dark:bg-[#0d0d1a]/80 backdrop-blur-sm p-6 text-center">
+                <div className="rounded-[15px] bg-white dark:bg-[#0d0d1a]/80 backdrop-blur-sm p-4 sm:p-6 text-center">
                   {/* Icon */}
                   <div
                     className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.accent} flex items-center justify-center mx-auto mb-4`}

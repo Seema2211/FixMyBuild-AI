@@ -65,7 +65,7 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-24 lg:py-32 relative">
+    <section id="how-it-works" className="py-14 sm:py-24 lg:py-32 relative">
       {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-purple-500/[0.04] dark:bg-purple-600/[0.06] rounded-full blur-[100px]" />
@@ -76,7 +76,7 @@ export function HowItWorks() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-20"
+          className="text-center mb-12 lg:mb-20"
         >
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/25 bg-indigo-500/8 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-4 uppercase tracking-widest">
             How it works
@@ -94,7 +94,7 @@ export function HowItWorks() {
         </motion.div>
 
         {/* Steps grid with connector */}
-        <div className="relative grid lg:grid-cols-3 gap-8">
+        <div className="relative grid lg:grid-cols-3 gap-5 lg:gap-8">
           {/* Glowing connector line between steps */}
           <div className="hidden lg:block absolute top-16 left-[calc(33%+16px)] right-[calc(33%+16px)] h-px z-0">
             <div className="w-full h-full bg-gradient-to-r from-indigo-500/60 via-purple-500/60 to-indigo-500/60" />
@@ -114,7 +114,7 @@ export function HowItWorks() {
               <div className="p-px rounded-2xl bg-gradient-to-br from-white/12 via-white/5 to-transparent hover:from-indigo-500/30 hover:via-purple-500/15 hover:to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent dark:hover:from-indigo-500/30 dark:hover:via-purple-500/15 dark:hover:to-transparent from-slate-200 hover:from-indigo-300/50 transition-all duration-500">
                 <div className="rounded-[15px] bg-white dark:bg-[#0d0d1a]/90 backdrop-blur-sm p-6 h-full">
                   {/* Numbered glow ring */}
-                  <div className="relative w-12 h-12 mx-auto mb-6">
+                  <div className="relative w-12 h-12 mx-auto lg:mx-0 mb-6">
                     <div
                       className="absolute inset-0 rounded-full blur-lg"
                       style={{ background: step.glowColor }}

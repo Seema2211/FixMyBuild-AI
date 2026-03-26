@@ -10,7 +10,7 @@ export function Pricing() {
   const [annual, setAnnual] = useState(false);
 
   return (
-    <section id="pricing" className="py-24 lg:py-32 relative">
+    <section id="pricing" className="py-14 sm:py-24 lg:py-32 relative">
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] bg-indigo-400/[0.04] dark:bg-indigo-600/[0.07] rounded-full blur-[130px]" />
@@ -38,7 +38,7 @@ export function Pricing() {
           </p>
 
           {/* Billing toggle */}
-          <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-1">
+          <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-1 text-sm">
             {[false, true].map((isAnnual) => (
               <button
                 key={String(isAnnual)}
@@ -67,7 +67,7 @@ export function Pricing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="relative"
+              className={cn('relative', plan.popular && 'pt-5 sm:pt-0')}
             >
               {plan.popular ? (
                 /* ── Popular card ── */
