@@ -5,13 +5,6 @@ import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
 
-const NAV_LINKS = [
-  { label: 'Features',     href: '#features' },
-  { label: 'Integrations', href: '#integrations' },
-  { label: 'Pricing',      href: '#pricing' },
-  { label: 'How it works', href: '#how-it-works' },
-];
-
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -45,19 +38,6 @@ export function Navbar() {
           </span>
         </a>
 
-        {/* Desktop nav links */}
-        <div className="hidden md:flex items-center gap-1">
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="px-3.5 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-black/5 dark:hover:bg-white/6 transition-all duration-150"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-
         {/* Desktop CTA + theme toggle */}
         <div className="hidden md:flex items-center gap-2">
           <ThemeToggle />
@@ -90,19 +70,7 @@ export function Navbar() {
       {/* Mobile menu */}
       {open && (
         <div className="md:hidden bg-white/95 dark:bg-[#0c0c18]/95 backdrop-blur-xl border-b border-black/8 dark:border-white/8 px-4 pb-5 pt-2">
-          <div className="flex flex-col gap-1 mb-4">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                className="px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-black/5 dark:hover:bg-white/8 transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 pt-3 border-t border-black/8 dark:border-white/8">
+          <div className="flex flex-col gap-2 pt-3">
             <Button variant="outline" href="https://app.fixmybuild.io/login">Sign in</Button>
             <Button href="https://app.fixmybuild.io/register">Start free →</Button>
           </div>

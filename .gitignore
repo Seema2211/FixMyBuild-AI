@@ -49,3 +49,8 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+# ===========================
+# Claude Code
+# ===========================
+.claude/worktrees/
