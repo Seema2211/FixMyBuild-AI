@@ -51,6 +51,78 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* ── Aurora animated background ─────────────────────────────────── */
+@keyframes aurora {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.aurora-bg {
+  background: linear-gradient(
+    125deg,
+    #07070f 0%,
+    #0e0b2e 20%,
+    #130a1f 40%,
+    #07070f 60%,
+    #0a0e1f 80%,
+    #07070f 100%
+  );
+  background-size: 400% 400%;
+  animation: aurora 15s ease infinite;
+}
+
+/* Light mode aurora override */
+:root .aurora-bg,
+html:not(.dark) .aurora-bg {
+  background: linear-gradient(
+    125deg,
+    #f8fafc 0%,
+    #eef2ff 25%,
+    #fdf4ff 50%,
+    #f8fafc 75%,
+    #f0f4ff 100%
+  );
+  background-size: 400% 400%;
+  animation: aurora 20s ease infinite;
+}
+
+/* ── Noise texture overlay ───────────────────────────────────────── */
+.noise {
+  position: relative;
+}
+.noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Gradient border technique ───────────────────────────────────── */
+.gradient-border {
+  position: relative;
+  background: linear-gradient(#0d0d1a, #0d0d1a) padding-box,
+    linear-gradient(135deg, rgba(99,102,241,0.5), rgba(168,85,247,0.2), rgba(99,102,241,0.1)) border-box;
+  border: 1px solid transparent;
+}
+
+/* ── Glow button ─────────────────────────────────────────────────── */
+.btn-glow {
+  box-shadow: 0 0 0 0 rgba(99,102,241,0.4);
+  transition: box-shadow 0.3s ease;
+}
+.btn-glow:hover {
+  box-shadow: 0 0 20px 4px rgba(99,102,241,0.3), 0 0 60px 8px rgba(99,102,241,0.1);
+}
+
+/* ── Beam line ───────────────────────────────────────────────────── */
+.beam {
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.6), transparent);
+  height: 1px;
+}
+
 /* ── Gradient mesh ────────────────────────────────────────────────── */
 .gradient-mesh {
   background-image:
@@ -100,6 +172,23 @@ body {
   50%       { transform: translateY(-8px); }
 }
 .animate-float { animation: float 5s ease-in-out infinite; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+/* ── Glow ring for badge ─────────────────────────────────────────── */
+@keyframes ring-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%       { opacity: 0.8; transform: scale(1.08); }
+}
+.ring-pulse { animation: ring-pulse 2s ease-in-out infinite; }
 
 /* ── Scrollbar ────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }

@@ -31,18 +31,21 @@ export function Navbar() {
           : 'bg-transparent'
       )}
     >
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative">
         {/* Logo */}
         <a href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-900/30 group-hover:shadow-indigo-900/50 transition-shadow">
-            <Zap className="w-4 h-4 text-white fill-white" />
+          <div className="relative">
+            <div className="absolute inset-0 rounded-lg bg-indigo-500/40 blur-md group-hover:bg-indigo-500/60 transition-all" />
+            <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-900/30">
+              <Zap className="w-4 h-4 text-white fill-white" />
+            </div>
           </div>
           <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">
             Fix<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">My</span>Build
           </span>
         </a>
 
-        {/* Desktop links */}
+        {/* Desktop nav links */}
         <div className="hidden md:flex items-center gap-1">
           {NAV_LINKS.map((link) => (
             <a
@@ -77,6 +80,11 @@ export function Navbar() {
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
+
+        {/* Scrolled bottom beam */}
+        {scrolled && (
+          <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
+        )}
       </nav>
 
       {/* Mobile menu */}

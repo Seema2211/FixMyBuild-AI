@@ -4,12 +4,20 @@ import { Link2, BrainCircuit, GitPullRequest } from 'lucide-react';
 
 const STEPS = [
   {
-    number: '01', icon: Link2, title: 'Connect your repos',
-    description: 'Link GitHub, GitLab, Azure DevOps, or Bitbucket via OAuth. Select which repositories FixMyBuild should monitor. Done in under 2 minutes — no YAML, no agents, no infra changes.',
+    number: '01',
+    icon: Link2,
+    title: 'Connect your repos',
+    description:
+      'Link GitHub, GitLab, Azure DevOps, or Bitbucket via OAuth. Select which repositories FixMyBuild should monitor. Done in under 2 minutes — no YAML, no agents, no infra changes.',
+    accent: 'from-indigo-600 to-indigo-500',
+    glowColor: 'rgba(99,102,241,0.4)',
     visual: (
       <div className="flex flex-wrap gap-2 mt-4">
         {['GitHub', 'GitLab', 'Azure DevOps', 'Bitbucket'].map((p) => (
-          <span key={p} className="px-2.5 py-1 text-xs font-medium bg-slate-100 dark:bg-white/8 border border-slate-200 dark:border-white/12 rounded-lg text-slate-600 dark:text-slate-300">
+          <span
+            key={p}
+            className="px-2.5 py-1 text-xs font-medium bg-white/8 dark:bg-white/8 bg-slate-100 border border-white/12 dark:border-white/12 border-slate-200 rounded-lg text-slate-300 dark:text-slate-300 text-slate-600"
+          >
             {p}
           </span>
         ))}
@@ -17,27 +25,39 @@ const STEPS = [
     ),
   },
   {
-    number: '02', icon: BrainCircuit, title: 'AI analyzes the failure',
-    description: 'The moment a pipeline fails, FixMyBuild receives the event, reads the logs, and uses AI to identify the exact root cause — classified by severity with a plain-English explanation.',
+    number: '02',
+    icon: BrainCircuit,
+    title: 'AI analyzes the failure',
+    description:
+      'The moment a pipeline fails, FixMyBuild receives the event, reads the logs, and uses AI to identify the exact root cause — classified by severity with a plain-English explanation.',
+    accent: 'from-purple-600 to-purple-500',
+    glowColor: 'rgba(168,85,247,0.4)',
     visual: (
-      <div className="mt-4 rounded-xl bg-slate-50 dark:bg-white/4 border border-slate-200 dark:border-white/8 p-3 font-mono text-xs space-y-1.5">
-        <div className="text-red-500 dark:text-red-400">✗ Step "test" failed after 43s</div>
-        <div className="text-indigo-600 dark:text-indigo-300">→ Root cause: Missing env var NODE_ENV</div>
-        <div className="text-emerald-600 dark:text-emerald-400">→ Confidence: 94% · Severity: High</div>
+      <div className="mt-4 rounded-xl bg-white/4 dark:bg-white/4 bg-slate-50 border border-white/8 dark:border-white/8 border-slate-200 p-3 font-mono text-xs space-y-1.5">
+        <div className="text-red-400">✗ Step "test" failed after 43s</div>
+        <div className="text-indigo-400">→ Root cause: Missing env var NODE_ENV</div>
+        <div className="text-emerald-400">→ Confidence: 94% · Severity: High</div>
       </div>
     ),
   },
   {
-    number: '03', icon: GitPullRequest, title: 'Fix shipped automatically',
-    description: 'When AI confidence is ≥ 70%, FixMyBuild opens a pull request with the fix already applied. You review, approve, and merge. Your repo goes green.',
+    number: '03',
+    icon: GitPullRequest,
+    title: 'Fix shipped automatically',
+    description:
+      'When AI confidence is ≥ 70%, FixMyBuild opens a pull request with the fix already applied. You review, approve, and merge. Your repo goes green.',
+    accent: 'from-emerald-600 to-teal-500',
+    glowColor: 'rgba(16,185,129,0.4)',
     visual: (
-      <div className="mt-4 flex items-center gap-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/8 border border-emerald-200 dark:border-emerald-500/20 px-3 py-2.5">
-        <GitPullRequest className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+      <div className="mt-4 flex items-center gap-3 rounded-xl bg-emerald-500/8 border border-emerald-500/20 px-3 py-2.5">
+        <GitPullRequest className="w-5 h-5 text-emerald-400 shrink-0" />
         <div>
-          <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">PR #142 opened</div>
-          <div className="text-xs text-slate-500 dark:text-slate-500">fix: add NODE_ENV to CI environment</div>
+          <div className="text-xs font-semibold text-emerald-300">PR #142 opened</div>
+          <div className="text-xs text-slate-500">fix: add NODE_ENV to CI environment</div>
         </div>
-        <span className="ml-auto text-xs bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-medium">Open</span>
+        <span className="ml-auto text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-medium">
+          Open
+        </span>
       </div>
     ),
   },
@@ -45,37 +65,75 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-24 lg:py-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
-          <div className="text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-3">How it works</div>
+    <section id="how-it-works" className="py-24 lg:py-32 relative">
+      {/* Background glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-purple-500/[0.04] dark:bg-purple-600/[0.06] rounded-full blur-[100px]" />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-20"
+        >
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/25 bg-indigo-500/8 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-4 uppercase tracking-widest">
+            How it works
+          </div>
           <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 text-slate-900 dark:text-white">
             From failure to fix in{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">minutes</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+              minutes
+            </span>
           </h2>
           <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            No manual debugging. No Slack threads. No senior engineer rabbit holes. Just automated analysis and a PR ready to merge.
+            No manual debugging. No Slack threads. No senior engineer rabbit holes.
+            Just automated analysis and a PR ready to merge.
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        {/* Steps grid with connector */}
+        <div className="relative grid lg:grid-cols-3 gap-8">
+          {/* Glowing connector line between steps */}
+          <div className="hidden lg:block absolute top-16 left-[calc(33%+16px)] right-[calc(33%+16px)] h-px z-0">
+            <div className="w-full h-full bg-gradient-to-r from-indigo-500/60 via-purple-500/60 to-indigo-500/60" />
+            <div className="absolute inset-0 blur-sm bg-gradient-to-r from-indigo-500/40 via-purple-500/40 to-indigo-500/40" />
+          </div>
+
           {STEPS.map((step, i) => (
             <motion.div
               key={step.number}
-              initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: i * 0.15 }}
-              className="group relative bg-white dark:bg-white/3 border border-slate-200 dark:border-white/8 rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-100 dark:hover:shadow-none dark:hover:bg-white/5 transition-all duration-300"
+              initial={{ opacity: 0, y: 32 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: i * 0.15 }}
+              className="group relative z-10"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 group-hover:shadow-indigo-300 dark:group-hover:shadow-indigo-900/60 transition-shadow">
-                  <step.icon className="w-5 h-5 text-white" />
+              {/* Gradient border card */}
+              <div className="p-px rounded-2xl bg-gradient-to-br from-white/12 via-white/5 to-transparent hover:from-indigo-500/30 hover:via-purple-500/15 hover:to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent dark:hover:from-indigo-500/30 dark:hover:via-purple-500/15 dark:hover:to-transparent from-slate-200 hover:from-indigo-300/50 transition-all duration-500">
+                <div className="rounded-[15px] bg-white dark:bg-[#0d0d1a]/90 backdrop-blur-sm p-6 h-full">
+                  {/* Numbered glow ring */}
+                  <div className="relative w-12 h-12 mx-auto mb-6">
+                    <div
+                      className="absolute inset-0 rounded-full blur-lg"
+                      style={{ background: step.glowColor }}
+                    />
+                    <div
+                      className={`relative w-12 h-12 rounded-full bg-gradient-to-br ${step.accent} flex items-center justify-center font-bold text-white shadow-lg`}
+                      style={{ boxShadow: `0 8px 20px ${step.glowColor}` }}
+                    >
+                      {step.number}
+                    </div>
+                  </div>
+
+                  <div className="text-center lg:text-left">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{step.title}</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{step.description}</p>
+                    {step.visual}
+                  </div>
                 </div>
-                <span className="text-2xl font-black text-slate-200 dark:text-white/10 group-hover:text-slate-300 dark:group-hover:text-white/15 transition-colors">
-                  {step.number}
-                </span>
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{step.title}</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{step.description}</p>
-              {step.visual}
             </motion.div>
           ))}
         </div>
