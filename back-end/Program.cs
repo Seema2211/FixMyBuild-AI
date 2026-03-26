@@ -112,7 +112,7 @@ builder.Services.AddHostedService<PipelineMonitorWorker>();
 // ── CORS ──────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddDefaultPolicy(policy =>See
     {
         policy.WithOrigins(
                 builder.Configuration["AllowedOrigins"] ?? "http://localhost:4200")

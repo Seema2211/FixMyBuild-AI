@@ -40,7 +40,7 @@ export function Navbar() {
               <Zap className="w-4 h-4 text-white fill-white" />
             </div>
           </div>
-          <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">
+          <span className="font-bold text-lg tracking-tight text-[var(--foreground)]">
             Fix<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">My</span>Build
           </span>
         </a>

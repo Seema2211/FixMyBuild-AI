@@ -73,7 +73,6 @@ body {
 }
 
 /* Light mode aurora override */
-:root .aurora-bg,
 html:not(.dark) .aurora-bg {
   background: linear-gradient(
     125deg,
