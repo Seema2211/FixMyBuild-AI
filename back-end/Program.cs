@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using FixMyBuildApi.Data;
 using FixMyBuildApi.Extensions;
 using FixMyBuildApi.Services;
+using FixMyBuildApi.Services.Llm;
 using FixMyBuildApi.Services.Providers;
 using FixMyBuildApi.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -82,10 +83,24 @@ builder.Services.AddHttpClient("GitHubLogsDownload", client =>
     ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
 });
 
-builder.Services.AddHttpClient<IAIAnalyzerService, AIAnalyzerService>(client =>
+// ── LLM Provider: config-driven, swappable per environment ───
+var llmProvider = builder.Configuration["LLM:Provider"] ?? "openai";
+if (llmProvider.Equals("groq", StringComparison.OrdinalIgnoreCase))
 {
-    client.Timeout = TimeSpan.FromSeconds(60);
-});
+    builder.Services.AddHttpClient<ILlmProvider, GroqLlmProvider>(client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(60);
+    });
+}
+else
+{
+    // Default: OpenAI (production standard)
+    builder.Services.AddHttpClient<ILlmProvider, OpenAiLlmProvider>(client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(60);
+    });
+}
+builder.Services.AddScoped<IAIAnalyzerService, AIAnalyzerService>();
 
 // ── Services ──────────────────────────────────────────────────
 builder.Services.AddScoped<IGitHubService, GitHubService>();
@@ -105,6 +120,7 @@ builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddSingleton<ISseService, SseService>();
 builder.Services.AddScoped<IWebhookDeliveryService, WebhookDeliveryService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 
 // ── Background Worker ─────────────────────────────────────────
 builder.Services.AddHostedService<PipelineMonitorWorker>();
@@ -112,7 +128,7 @@ builder.Services.AddHostedService<PipelineMonitorWorker>();
 // ── CORS ──────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>See
+    options.AddDefaultPolicy(policy =>
     {
         policy.WithOrigins(
                 builder.Configuration["AllowedOrigins"] ?? "http://localhost:4200")
@@ -158,5 +174,6 @@ app.MapProfileEndpoints();
 app.MapSseEndpoints();
 app.MapNotificationEndpoints();
 app.MapWebhookEndpoints();
+app.MapFeedbackEndpoints();
 
 app.Run();

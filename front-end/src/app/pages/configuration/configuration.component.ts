@@ -13,6 +13,7 @@ import type { AuditEntry } from '../../core/models/audit.model';
 import { AUDIT_ACTION_LABELS, AUDIT_ACTION_COLORS } from '../../core/models/audit.model';
 import { BillingService } from '../../core/services/billing.service';
 import type { BillingPlan } from '../../core/models/billing.model';
+import { FeedbackService } from '../../core/services/feedback.service';
 import { ProfileService } from '../../core/services/profile.service';
 import type { OrgInfo, SessionInfo } from '../../core/services/profile.service';
 import { WebhookService } from '../../core/services/webhook.service';
@@ -938,6 +939,31 @@ import { AddRepoDialogComponent } from '../../shared/add-repo-dialog/add-repo-di
                          [class.usage-bar-warn]="usagePct(billingPlan.usage.aiAnalysesUsed, billingPlan.usage.aiAnalysesLimit) >= 80"
                          [class.usage-bar-danger]="usagePct(billingPlan.usage.aiAnalysesUsed, billingPlan.usage.aiAnalysesLimit) >= 100"></div>
                   </div>
+                }
+              </div>
+
+              <!-- Pattern Intelligence -->
+              <div class="usage-card">
+                <div class="usage-card-header">
+                  <span class="usage-label">Pattern Intelligence</span>
+                  <span class="usage-value">
+                    @if (patternCount !== null) {
+                      {{ patternCount }} learned
+                    } @else if (billingPlan.usage.analyticsEnabled) {
+                      <span class="feature-on">Enabled</span>
+                    } @else {
+                      <span class="feature-off">Pro+</span>
+                    }
+                  </span>
+                </div>
+                @if (billingPlan.usage.analyticsEnabled && patternCount !== null && patternCount > 0) {
+                  <a routerLink="/patterns" class="upgrade-hint" style="margin-top:0.5rem;display:block">
+                    View pattern analytics →
+                  </a>
+                } @else if (!billingPlan.usage.analyticsEnabled) {
+                  <a routerLink="/pricing" class="upgrade-hint" style="margin-top:0.5rem;display:block">
+                    Upgrade to Pro to enable self-learning →
+                  </a>
                 }
               </div>
 
@@ -2167,6 +2193,7 @@ export class ConfigurationComponent implements OnInit {
   // Billing
   billingPlan: BillingPlan | null = null;
   billingLoading = false;
+  patternCount: number | null = null;
 
   // Team
   members: TeamMember[] = [];
@@ -2222,6 +2249,7 @@ export class ConfigurationComponent implements OnInit {
     readonly authService: AuthService,
     private readonly auditService: AuditService,
     private readonly billingService: BillingService,
+    private readonly feedbackService: FeedbackService,
     private readonly profileService: ProfileService,
     private readonly webhookService: WebhookService,
     private readonly router: Router,
@@ -2688,7 +2716,17 @@ export class ConfigurationComponent implements OnInit {
 
   switchToBilling(): void {
     this.activeTab = 'billing';
-    if (!this.billingPlan && !this.billingLoading) this.loadBillingPlan();
+    if (!this.billingPlan && !this.billingLoading) {
+      this.loadBillingPlan();
+      this.loadPatternCount();
+    }
+  }
+
+  private loadPatternCount(): void {
+    this.feedbackService.getPatterns(1, 1).subscribe({
+      next: (d) => { this.patternCount = d.total; },
+      error: () => { /* 402 = Free plan — leave null, template handles it */ },
+    });
   }
 
   loadBillingPlan(): void {

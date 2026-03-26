@@ -79,7 +79,7 @@ public static class IngestEndpoints
             try
             {
                 await subscriptionService.EnforceLimitAsync(apiKey.OrganizationId, LimitType.AiAnalysis);
-                analysis = await aiAnalyzer.AnalyzeLogsAsync(payload.ErrorLog, ct);
+                analysis = await aiAnalyzer.AnalyzeLogsAsync(payload.ErrorLog, apiKey.OrganizationId, ct);
                 await subscriptionService.IncrementAiAnalysisUsageAsync(apiKey.OrganizationId);
             }
             catch (PlanLimitException) { /* AI limit reached — store raw log without analysis */ }

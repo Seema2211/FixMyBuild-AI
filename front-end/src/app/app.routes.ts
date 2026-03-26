@@ -17,6 +17,7 @@ export const routes: Routes = [
       { path: 'onboarding', loadComponent: () => import('./pages/onboarding/onboarding.component').then(m => m.OnboardingComponent) },
       { path: 'pipelines/:id', loadComponent: () => import('./pages/pipeline-details/pipeline-details.component').then(m => m.PipelineDetailsComponent) },
       { path: 'analytics', loadComponent: () => import('./pages/trend-analytics/trend-analytics.component').then(m => m.TrendAnalyticsComponent) },
+      { path: 'patterns', loadComponent: () => import('./pages/patterns/patterns.component').then(m => m.PatternsComponent) },
       { path: 'settings', loadComponent: () => import('./pages/configuration/configuration.component').then(m => m.ConfigurationComponent) },
     ]
   },

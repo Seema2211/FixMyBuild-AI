@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { Link2, BrainCircuit, GitPullRequest } from 'lucide-react';
+import { Link2, BrainCircuit, GitPullRequest, Sparkles } from 'lucide-react';
 
 const STEPS = [
   {
@@ -61,6 +61,26 @@ const STEPS = [
       </div>
     ),
   },
+  {
+    number: '04',
+    icon: Sparkles,
+    title: 'It gets smarter over time',
+    description:
+      'Every merged or closed PR is tracked. FixMyBuild fingerprints recurring failure patterns and injects proven fixes into future analyses — automatically raising confidence on repeat failures.',
+    accent: 'from-amber-600 to-orange-500',
+    glowColor: 'rgba(245,158,11,0.4)',
+    visual: (
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center gap-1.5 rounded-xl bg-amber-500/8 border border-amber-500/20 px-3 py-2.5">
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          <div>
+            <div className="text-xs font-semibold text-amber-300">Pattern matched — 7 occurrences</div>
+            <div className="text-xs text-slate-500">acceptance rate 87% · confidence ↑ 96%</div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
 ];
 
 export function HowItWorks() {
@@ -94,11 +114,11 @@ export function HowItWorks() {
         </motion.div>
 
         {/* Steps grid with connector */}
-        <div className="relative grid lg:grid-cols-3 gap-5 lg:gap-8">
+        <div className="relative grid lg:grid-cols-4 gap-5 lg:gap-6">
           {/* Glowing connector line between steps */}
-          <div className="hidden lg:block absolute top-16 left-[calc(33%+16px)] right-[calc(33%+16px)] h-px z-0">
-            <div className="w-full h-full bg-gradient-to-r from-indigo-500/60 via-purple-500/60 to-indigo-500/60" />
-            <div className="absolute inset-0 blur-sm bg-gradient-to-r from-indigo-500/40 via-purple-500/40 to-indigo-500/40" />
+          <div className="hidden lg:block absolute top-16 left-[calc(12.5%+16px)] right-[calc(12.5%+16px)] h-px z-0">
+            <div className="w-full h-full bg-gradient-to-r from-indigo-500/60 via-purple-500/60 via-emerald-500/60 to-amber-500/60" />
+            <div className="absolute inset-0 blur-sm bg-gradient-to-r from-indigo-500/40 via-purple-500/40 via-emerald-500/40 to-amber-500/40" />
           </div>
 
           {STEPS.map((step, i) => (

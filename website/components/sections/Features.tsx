@@ -1,6 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
-import { BrainCircuit, GitPullRequest, AlertTriangle, BarChart3, Radio, Webhook, Bell, Key } from 'lucide-react';
+import { BrainCircuit, GitPullRequest, AlertTriangle, BarChart3, Radio, Webhook, Bell, Key, Sparkles } from 'lucide-react';
 
 const FEATURES = [
   {
@@ -148,6 +148,36 @@ const FEATURES = [
     description:
       'Works with any CI system. One HTTP call with your API key and FixMyBuild handles the rest.',
     preview: null,
+  },
+  {
+    icon: Sparkles,
+    title: 'Pattern Intelligence',
+    size: 'medium',
+    accent: 'from-amber-600 to-orange-500',
+    glowColor: 'rgba(245,158,11,0.4)',
+    description:
+      'The AI remembers what worked. Every accepted or rejected fix is fingerprinted and tracked. Recurring failures get higher confidence and a proven fix — automatically.',
+    preview: (
+      <div className="mt-4 space-y-3">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-mono text-slate-500 text-[11px]">a3f2c1b8e9d07f4c</span>
+          <span className="text-amber-400 font-bold">×&thinsp;7</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3 text-amber-400" />
+          <span className="text-[11px] font-semibold text-amber-400">Based on 7 similar past failures</span>
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">acceptance rate</span>
+            <span className="text-emerald-400 font-bold">87%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+            <div className="h-full w-[87%] rounded-full bg-gradient-to-r from-amber-500 to-orange-400" />
+          </div>
+        </div>
+      </div>
+    ),
   },
 ];
 

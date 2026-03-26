@@ -37,6 +37,10 @@ public class AppDbContext : DbContext
     public DbSet<ConnectedRepository> ConnectedRepositories => Set<ConnectedRepository>();
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
 
+    // ── Self-Learning ────────────────────────────────────────────
+    public DbSet<FailureFeedback> FailureFeedbacks => Set<FailureFeedback>();
+    public DbSet<FailurePattern>  FailurePatterns  => Set<FailurePattern>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var jsonConverter = new ValueConverter<List<string>, string>(
@@ -212,6 +216,28 @@ public class AppDbContext : DbContext
             e.HasKey(u => u.Id);
             e.HasIndex(u => new { u.OrganizationId, u.Month }).IsUnique();
             e.HasOne(u => u.Organization).WithMany(o => o.SubscriptionUsages).HasForeignKey(u => u.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── FailureFeedback ──────────────────────────────────────
+        modelBuilder.Entity<FailureFeedback>(e =>
+        {
+            e.HasKey(f => f.Id);
+            e.HasIndex(f => new { f.OrgId, f.PipelineFailureId });
+            e.HasIndex(f => new { f.OrgId, f.PrNumber, f.RepoOwner, f.RepoName });
+            e.HasIndex(f => new { f.OrgId, f.ErrorFingerprint });
+            e.Property(f => f.Outcome).HasConversion<string>();
+            e.Property(f => f.Category).HasMaxLength(100);
+            e.Property(f => f.ErrorFingerprint).HasMaxLength(32);
+            e.Property(f => f.OutcomeSource).HasMaxLength(20);
+        });
+
+        // ── FailurePattern ───────────────────────────────────────
+        modelBuilder.Entity<FailurePattern>(e =>
+        {
+            e.HasKey(p => p.Id);
+            e.HasIndex(p => new { p.OrgId, p.Category, p.ErrorFingerprint }).IsUnique();
+            e.Property(p => p.Category).HasMaxLength(100);
+            e.Property(p => p.ErrorFingerprint).HasMaxLength(32);
         });
     }
 }

@@ -39,6 +39,7 @@ export const PLANS = [
       'Unlimited AI analyses',
       '10 team members',
       'AI auto-PR creation',
+      'Pattern Intelligence — self-learning AI',
       'Trend analytics & insights',
       'Slack & email notifications',
       '90-day failure history',
@@ -67,6 +68,7 @@ export const PLANS = [
       'Unlimited AI analyses (priority)',
       'Unlimited team members',
       'AI auto-PR creation',
+      'Pattern Intelligence — self-learning AI',
       'Trend analytics & insights',
       'Slack & email notifications',
       'Unlimited failure history',
@@ -100,7 +102,7 @@ export const STATS = [
   { value: '12,000+', label: 'Pipeline runs monitored' },
   { value: '89%', label: 'Average AI confidence' },
   { value: '4.2 min', label: 'Mean time to PR' },
-  { value: '3 providers', label: 'CI/CD platforms supported' },
+  { value: '4 providers', label: 'CI/CD platforms supported' },
 ] as const;
 
 // ── FAQ ───────────────────────────────────────────────────────────────────────
@@ -136,5 +138,13 @@ export const FAQ = [
   {
     q: 'What happens when I hit my plan limit?',
     a: 'You\'ll receive a notification. Ingestion pauses for the current billing month. Your existing data, dashboard, and configuration are untouched. Upgrade at any time to resume immediately.',
+  },
+  {
+    q: 'What is Pattern Intelligence?',
+    a: 'Pattern Intelligence fingerprints recurring failure patterns and tracks whether each AI-suggested fix was accepted, rejected, or modified by your team. On Pro and Business plans, this history is injected into future AI analyses for the same pattern — giving higher confidence scores and proven fix suggestions for repeat failures. It learns from your codebase, not generic training data.',
+  },
+  {
+    q: 'How does FixMyBuild get smarter over time?',
+    a: 'Every time a fix PR is merged or closed, the outcome is automatically recorded via your VCS webhook. FixMyBuild builds a per-organisation pattern library — the more failures you process, the more context the AI has when the same pattern reappears. Free plan users still receive full AI analysis; historical context augmentation is a Pro+ feature.',
   },
 ] as const;

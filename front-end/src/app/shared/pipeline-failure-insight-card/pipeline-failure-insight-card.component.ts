@@ -1,6 +1,7 @@
 import { Component, input } from '@angular/core';
 import { PipelineStagesViewComponent } from '../pipeline-stages-view/pipeline-stages-view.component';
 import type { PipelineDetails } from '../../core/models/pipeline.model';
+import type { FailurePattern } from '../../core/models/feedback.model';
 
 @Component({
   selector: 'app-pipeline-failure-insight-card',
@@ -17,6 +18,12 @@ import type { PipelineDetails } from '../../core/models/pipeline.model';
         <h2 class="insight-title">Pipeline failure detected</h2>
         @if (f.errorSummary) {
           <p class="insight-summary">{{ f.errorSummary }}</p>
+        }
+        @if (pattern() && pattern()!.occurrenceCount >= 2) {
+          <span class="pattern-badge" title="AI used historical context from similar past failures">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Based on {{ pattern()!.occurrenceCount }} similar past failures
+          </span>
         }
       </div>
       <div class="conf-block">
@@ -91,6 +98,14 @@ import type { PipelineDetails } from '../../core/models/pipeline.model';
     }
     .insight-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); margin: 0 0 0.375rem; }
     .insight-summary { font-size: 0.875rem; color: var(--text-muted); margin: 0; line-height: 1.6; max-width: 540px; }
+    .pattern-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      margin-top: 0.5rem;
+      padding: 0.2rem 0.6rem; border-radius: 9999px;
+      background: #fef3c7; color: #92400e;
+      border: 1px solid #fde68a;
+      font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.03em;
+    }
 
     .conf-block { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; flex-shrink: 0; }
     .conf-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
@@ -153,6 +168,7 @@ import type { PipelineDetails } from '../../core/models/pipeline.model';
 })
 export class PipelineFailureInsightCardComponent {
   failure = input<PipelineDetails | null>(null);
+  pattern = input<FailurePattern | null>(null);
 
   categoryIcon(cat?: string): string {
     switch ((cat || '').toLowerCase()) {

@@ -37,7 +37,7 @@ public class PipelineService : IPipelineService
                 if (string.IsNullOrWhiteSpace(errorLog))
                     errorLog = "No error lines extracted from logs.";
 
-                var analysis = await aiAnalyzer.AnalyzeLogsAsync(errorLog, cancellationToken);
+                var analysis = await aiAnalyzer.AnalyzeLogsAsync(errorLog, null, cancellationToken);
                 var failure = MapToPipelineFailure(id, run.WorkflowName, errorLog, owner, repo, run.RunId, run.HeadBranch, analysis, run);
 
                 await UpsertAsync(failure, cancellationToken);
@@ -103,7 +103,7 @@ public class PipelineService : IPipelineService
                 if (string.IsNullOrWhiteSpace(errorLog))
                     errorLog = "No error lines extracted from logs.";
 
-                var analysis = await aiAnalyzer.AnalyzeLogsAsync(errorLog, cancellationToken);
+                var analysis = await aiAnalyzer.AnalyzeLogsAsync(errorLog, orgId, cancellationToken);
                 var failure = MapToPipelineFailure(id, run.WorkflowName, errorLog, owner, repo, run.RunId, run.HeadBranch, analysis, run, orgId);
 
                 await UpsertAsync(failure, cancellationToken);
@@ -165,7 +165,7 @@ public class PipelineService : IPipelineService
             if (string.IsNullOrWhiteSpace(errorLog))
                 errorLog = "No error lines extracted from logs.";
 
-            var analysis = await aiAnalyzer.AnalyzeLogsAsync(errorLog, cancellationToken);
+            var analysis = await aiAnalyzer.AnalyzeLogsAsync(errorLog, orgId, cancellationToken);
             var headBranch = run?.HeadBranch;
             var failure = MapToPipelineFailure(id, workflowName, errorLog, owner, repo, runId, headBranch, analysis, run, orgId);
 

@@ -13,12 +13,15 @@ public class AutoFixService : IAutoFixService
     private readonly AppDbContext _db;
     private readonly IEnumerable<IVcsProvider> _providers;
     private readonly ISubscriptionService _subscriptionService;
+    private readonly IFeedbackService _feedbackService;
 
-    public AutoFixService(AppDbContext db, IEnumerable<IVcsProvider> providers, ISubscriptionService subscriptionService)
+    public AutoFixService(AppDbContext db, IEnumerable<IVcsProvider> providers,
+        ISubscriptionService subscriptionService, IFeedbackService feedbackService)
     {
         _db = db;
         _providers = providers;
         _subscriptionService = subscriptionService;
+        _feedbackService = feedbackService;
     }
 
     public async Task<AutoFixResult> RunAsync(
@@ -118,7 +121,17 @@ public class AutoFixService : IAutoFixService
                 ct            : ct);
 
             if (pr != null)
+            {
                 failure.CreatedPullRequest = pr;
+
+                // ── Record pending feedback for self-learning ────────────────
+                // Best-effort: never block the PR creation response
+                if (orgId != Guid.Empty)
+                {
+                    try { await _feedbackService.CreatePendingAsync(failure, eff, pr, orgId, ct); }
+                    catch { /* best-effort */ }
+                }
+            }
         }
         catch { /* best-effort */ }
 

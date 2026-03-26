@@ -2,16 +2,19 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using FixMyBuildApi.Models;
-using Microsoft.Extensions.Configuration;
+using FixMyBuildApi.Services.Llm;
 
 namespace FixMyBuildApi.Services;
 
 public class AIAnalyzerService : IAIAnalyzerService
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
+    private readonly ILlmProvider         _llm;
+    private readonly IFeedbackService     _feedback;
+    private readonly ISubscriptionService _subscription;
 
-    private static readonly string SystemPrompt = @"You are a senior DevOps engineer specializing in CI/CD troubleshooting.
+    // ── Prompt parts — split so history can be injected between instructions and schema ──
+
+    private const string SystemInstructions = @"You are a senior DevOps engineer specializing in CI/CD troubleshooting.
 
 Analyze the provided pipeline logs carefully and determine the actual root cause of failure.
 
@@ -24,9 +27,9 @@ Focus on:
 * missing environment variables
 * authentication or permission issues
 
-Ignore warnings unless they directly cause the failure.
+Ignore warnings unless they directly cause the failure.";
 
-Return structured JSON in this format only (no markdown, no code fence, no text outside JSON):
+    private const string JsonSchema = @"Return structured JSON in this exact format (no markdown, no code fence, no text outside JSON):
 
 {
   ""failed_stage"": """",
@@ -41,62 +44,116 @@ Return structured JSON in this format only (no markdown, no code fence, no text 
 
 Rules:
 * Output valid JSON only
-* Do not include explanations outside JSON
-* Extract the most relevant error lines from the log into key_error_lines (array of strings)
-* Provide actionable fix suggestions
 * failed_stage: the pipeline step that failed (e.g. Build, Test, Deploy)
-* confidence: number 0-100";
+* key_error_lines: array of the most relevant error lines from the log
+* fix_suggestion: actionable, specific steps to resolve the issue
+* confidence: number 0-100 reflecting how certain you are of the root cause";
 
-    public AIAnalyzerService(HttpClient httpClient, IConfiguration configuration)
+    public AIAnalyzerService(
+        ILlmProvider llm,
+        IFeedbackService feedback,
+        ISubscriptionService subscription)
     {
-        _httpClient = httpClient;
-        _apiKey = configuration["OPENAI_API_KEY"] ?? "";
+        _llm          = llm;
+        _feedback     = feedback;
+        _subscription = subscription;
     }
 
-    public async Task<AIAnalysis?> AnalyzeLogsAsync(string log, CancellationToken cancellationToken = default)
+    public async Task<AIAnalysis?> AnalyzeLogsAsync(
+        string log,
+        Guid? orgId = null,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_apiKey))
-            return null;
+        // ── First pass: base analysis (no history context) ────────
+        var result = await RunAnalysisAsync(BuildSystemPrompt(), log, cancellationToken);
+        if (result is null) return null;
 
-        var userContent = $"Pipeline error log to analyze:\n\n{log}";
-
-        var body = new
+        // ── Pattern tracking — best-effort, non-blocking ──────────
+        if (orgId.HasValue && orgId.Value != Guid.Empty)
         {
-            model = "llama-3.3-70b-versatile",
-            messages = new[]
+            var fingerprint = ErrorFingerprintService.Compute(result.Category, result.KeyErrorLines);
+            _ = RecordPatternSilentlyAsync(orgId.Value, result.Category, fingerprint);
+
+            // ── Second pass: augmented analysis for Pro+ orgs ─────
+            if (await IsProOrAboveAsync(orgId.Value, cancellationToken))
             {
-                new { role = "system", content = SystemPrompt },
-                new { role = "user", content = userContent }
-            },
-            temperature = 0.2,
-            max_tokens = 1024
-        };
+                var context = await _feedback.GetPromptContextAsync(
+                    orgId.Value, result.Category, fingerprint, cancellationToken);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
-        request.Headers.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
-        request.Content = new StringContent(
-            JsonSerializer.Serialize(body),
-            Encoding.UTF8,
-            "application/json");
+                if (!string.IsNullOrWhiteSpace(context))
+                {
+                    // Re-run with history injected — fallback to first-pass result if this fails
+                    var augmented = await RunAnalysisAsync(
+                        BuildSystemPrompt(context), log, cancellationToken);
+                    if (augmented is not null)
+                        return augmented;
+                }
+            }
+        }
 
-        var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return result;
+    }
 
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var doc = JsonDocument.Parse(json);
-        var content = doc.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString();
+    // ── Private helpers ───────────────────────────────────────────
 
-        if (string.IsNullOrWhiteSpace(content))
-            return null;
+    private async Task<AIAnalysis?> RunAnalysisAsync(
+        string systemPrompt, string log, CancellationToken ct)
+    {
+        var userMessage = $"Pipeline error log to analyze:\n\n{log}";
+        var content     = await _llm.CompleteAsync(systemPrompt, userMessage, ct);
 
-        var jsonBlock = ExtractJson(content);
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        return JsonSerializer.Deserialize<AIAnalysis>(jsonBlock, options);
+        if (string.IsNullOrWhiteSpace(content)) return null;
+
+        try
+        {
+            var jsonBlock = ExtractJson(content);
+            var options   = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return JsonSerializer.Deserialize<AIAnalysis>(jsonBlock, options);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Builds the system prompt, optionally injecting historical context
+    /// between the instructions and the JSON schema.
+    /// </summary>
+    private static string BuildSystemPrompt(string? historicalContext = null)
+    {
+        var sb = new StringBuilder(SystemInstructions);
+        sb.AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(historicalContext))
+        {
+            sb.AppendLine();
+            sb.AppendLine(historicalContext);
+            sb.AppendLine();
+            sb.AppendLine("Use the organization history above to inform your analysis.");
+            sb.AppendLine("If it aligns with the current failure, reflect that with a higher confidence score and reference the known fix in your suggestion.");
+        }
+
+        sb.AppendLine();
+        sb.Append(JsonSchema);
+        return sb.ToString();
+    }
+
+    private async Task<bool> IsProOrAboveAsync(Guid orgId, CancellationToken ct)
+    {
+        try
+        {
+            await _subscription.EnforceLimitAsync(orgId, LimitType.Analytics);
+            return true;
+        }
+        catch (PlanLimitException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Fire-and-forget pattern recording. Never blocks or throws.</summary>
+    private async Task RecordPatternSilentlyAsync(Guid orgId, string category, string fingerprint)
+    {
+        try { await _feedback.RecordPatternOccurrenceAsync(orgId, category, fingerprint); }
+        catch { /* best-effort — never block analysis */ }
     }
 
     private static string ExtractJson(string content)
