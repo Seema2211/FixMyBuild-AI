@@ -20,7 +20,7 @@ export function Footer() {
       <div className="absolute inset-0 bg-grid opacity-20" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 mb-10 sm:mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10 sm:mb-12">
 
           {/* Brand */}
           <div>
@@ -42,6 +42,30 @@ export function Footer() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               All systems operational
             </div>
+          </div>
+
+          {/* Product links */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">
+              Product
+            </h4>
+            <ul className="space-y-2.5">
+              {[
+                { label: 'Features',     href: '/#features' },
+                { label: 'How it works', href: '/#how-it-works' },
+                { label: 'Integrations', href: '/#integrations' },
+                { label: 'Pricing',      href: '/#pricing' },
+              ].map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    className="text-sm text-slate-500 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Company links */}
