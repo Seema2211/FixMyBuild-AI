@@ -75,7 +75,8 @@ export function Pricing() {
                   {/* Glow underneath */}
                   <div className="absolute -inset-4 bg-indigo-600/15 dark:bg-indigo-600/15 rounded-3xl blur-2xl -z-10" />
 
-                  <div className="rounded-[15px] bg-[#0c0b2e] dark:bg-[#0c0b2e] bg-gradient-to-b from-indigo-50 to-purple-50 p-7 flex flex-col h-full">
+                  {/* Always dark navy — it's the featured card in both themes */}
+                  <div className="rounded-[15px] bg-[#0c0b2e] p-7 flex flex-col h-full">
                     {/* Popular badge */}
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
                       <div className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-900/40">
@@ -85,19 +86,19 @@ export function Pricing() {
                     </div>
 
                     <div className="mb-5">
-                      <h3 className="text-lg font-bold text-white dark:text-white text-slate-900 mb-1">{plan.name}</h3>
-                      <p className="text-sm text-indigo-300 dark:text-indigo-300 text-slate-600">{plan.description}</p>
+                      <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
+                      <p className="text-sm text-indigo-300">{plan.description}</p>
                     </div>
 
                     <div className="mb-6">
                       <div className="flex items-end gap-1">
-                        <span className="text-5xl font-extrabold text-white dark:text-white text-slate-900">
+                        <span className="text-5xl font-extrabold text-white">
                           ${annual ? plan.priceAnnual : plan.price}
                         </span>
-                        <span className="text-indigo-300 dark:text-indigo-300 text-slate-500 mb-2">/mo</span>
+                        <span className="text-indigo-300 mb-2">/mo</span>
                       </div>
                       {annual && (
-                        <span className="text-xs text-emerald-400 dark:text-emerald-400 text-emerald-600 font-medium">
+                        <span className="text-xs text-emerald-400 font-medium">
                           Billed annually · Save ${(plan.price - plan.priceAnnual) * 12}/yr
                         </span>
                       )}
@@ -105,7 +106,7 @@ export function Pricing() {
 
                     <a
                       href={plan.ctaHref}
-                      className="btn-glow inline-flex items-center justify-center w-full h-10 px-5 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-900/30 mb-7 transition-all duration-200 hover:-translate-y-0.5"
+                      className="btn-glow inline-flex items-center justify-center w-full h-10 px-5 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white shadow-lg shadow-indigo-900/30 mb-7 transition-all duration-200 hover:-translate-y-0.5"
                     >
                       {plan.cta}
                     </a>
@@ -114,7 +115,7 @@ export function Pricing() {
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-2.5 text-sm">
                           <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                          <span className="text-slate-200 dark:text-slate-200 text-slate-700">{feature}</span>
+                          <span className="text-slate-200">{feature}</span>
                         </li>
                       ))}
                     </ul>

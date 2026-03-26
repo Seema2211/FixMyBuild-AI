@@ -166,7 +166,7 @@ export function Hero() {
             <div className="relative inline-flex items-center">
               {/* Animated glow ring */}
               <span className="ring-pulse absolute -inset-1 rounded-full bg-indigo-500/20 blur-sm" />
-              <span className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 backdrop-blur-sm text-xs font-semibold text-indigo-300 dark:text-indigo-300 text-indigo-700">
+              <span className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 backdrop-blur-sm text-xs font-semibold text-indigo-600 dark:text-indigo-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
                 AI-Powered CI/CD Analysis
                 <span className="text-indigo-500 dark:text-indigo-500">✦</span>
@@ -181,7 +181,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.1 }}
             className="text-5xl sm:text-6xl lg:text-[68px] font-extrabold leading-[1.06] tracking-tight mb-4"
           >
-            <span className="text-slate-900 dark:text-white">Stop losing hours</span>
+            <span className="text-[var(--foreground)]">Stop losing hours</span>
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-orange-500 to-red-400 dark:from-red-400 dark:via-orange-400 dark:to-red-300">
               to broken pipelines.
@@ -227,7 +227,7 @@ export function Hero() {
             </a>
             <a
               href="#how-it-works"
-              className="inline-flex items-center justify-center gap-2 h-12 px-7 text-base font-semibold rounded-xl border border-white/15 dark:border-white/15 border-slate-300 text-slate-700 dark:text-slate-200 hover:bg-white/5 dark:hover:bg-white/5 hover:border-indigo-400/40 transition-all duration-200 backdrop-blur-sm"
+              className="inline-flex items-center justify-center gap-2 h-12 px-7 text-base font-semibold rounded-xl border border-slate-300 dark:border-white/15 text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 hover:border-indigo-400/50 transition-all duration-200 backdrop-blur-sm"
             >
               See how it works
             </a>
@@ -252,7 +252,7 @@ export function Hero() {
               ))}
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">Join 500+ teams</div>
+              <div className="text-sm font-semibold text-[var(--foreground)]">Join 500+ teams</div>
               <div className="flex items-center gap-1 mt-0.5">
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className="w-3 h-3 text-amber-400 fill-amber-400" />
